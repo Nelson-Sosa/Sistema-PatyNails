@@ -74,7 +74,7 @@ function ClientCard({ client, onEdit, onViewHistory }) {
           {(client.freeServices ?? 0) > 0 && (
             <span className="inline-flex items-center gap-1 rounded-full bg-brand-primary/10 px-2 py-0.5 text-[11px] font-medium text-brand-primary">
               <Gift className="h-3 w-3" />
-              {client.freeServices} gratis
+              {client.freeServices} desc. 20%
             </span>
           )}
         </div>

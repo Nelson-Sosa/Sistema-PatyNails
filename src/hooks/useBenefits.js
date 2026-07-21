@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   getBenefitsHistory,
   getLastBenefitsEvent,
-  redeemFreeService,
+  redeemDiscount,
 } from '@/services/benefits/benefitsService'
 import { getBenefitsSettings } from '@/services/settings/settingsService'
 
@@ -44,12 +44,12 @@ export function useLastBenefitsEvent(clientId) {
 }
 
 /**
- * Mutation: redeem a free service for a client.
+ * Mutation: redeem a 20% discount for a client.
  */
-export function useRedeemFreeService() {
+export function useRedeemDiscount() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ clientId, adminUid }) => redeemFreeService(clientId, adminUid),
+    mutationFn: ({ clientId, adminUid }) => redeemDiscount(clientId, adminUid),
     onSuccess: (result, { clientId }) => {
       if (result?.success) {
         qc.invalidateQueries({ queryKey: ['clients'] })

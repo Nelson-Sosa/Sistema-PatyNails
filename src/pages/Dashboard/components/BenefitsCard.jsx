@@ -9,7 +9,7 @@ function BenefitsCard() {
 
   if (!settings?.enabled) return null
 
-  const rewardEvery = settings.rewardEveryVisits ?? 10
+  const rewardEvery = settings.rewardEveryVisits ?? 6
 
   return (
     <div className="relative overflow-hidden rounded-2xl border border-brand-pastel bg-brand-card p-5 shadow-sm shadow-brand-text/5 transition-all duration-300 hover:border-brand-primary/50 hover:shadow-brand-text/10">
@@ -23,14 +23,14 @@ function BenefitsCard() {
           <div>
             <p className="text-sm font-medium text-brand-text">Programa de Beneficios</p>
             <p className="text-[11px] text-brand-text-muted">
-              {rewardEvery} visitas = 1 servicio gratuito
+              {rewardEvery} visitas = 20% descuento
             </p>
           </div>
         </div>
 
         <p className="text-xs text-brand-text-muted leading-relaxed">
           Tus clientes acumulan una visita cada vez que completan un turno.
-          Al llegar a {rewardEvery} visitas reciben automáticamente un servicio gratuito.
+          Al llegar a {rewardEvery} visitas reciben automáticamente un 20% de descuento.
         </p>
 
         <button

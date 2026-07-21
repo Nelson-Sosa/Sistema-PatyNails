@@ -80,10 +80,10 @@ export const DEFAULT_PROFESSIONAL_ID = 'default'
 
 /** Benefits Program — visit-based rewards */
 export const BENEFITS = {
-  DEFAULT_REWARD_EVERY_VISITS: 10,
-  DEFAULT_REWARD_INCREMENT: 10,
-  REWARD_TYPE: 'free_service',
-  REWARD_DESCRIPTION: 'Servicio gratuito',
+  DEFAULT_REWARD_EVERY_VISITS: 6,
+  DEFAULT_REWARD_INCREMENT: 6,
+  REWARD_TYPE: 'discount',
+  REWARD_DESCRIPTION: '20% de descuento',
 }
 
 /** Phase 2 — WhatsApp trigger types (not implemented) */

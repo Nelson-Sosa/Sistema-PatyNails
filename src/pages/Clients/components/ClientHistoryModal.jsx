@@ -3,7 +3,7 @@ import { X, CalendarDays, Clock, DollarSign, Scissors, Gift, Sparkles } from 'lu
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { useClientHistory } from '@/hooks/useClients'
-import { useBenefitsSettings, useRedeemFreeService } from '@/hooks/useBenefits'
+import { useBenefitsSettings, useRedeemDiscount } from '@/hooks/useBenefits'
 import { useAuth } from '@/hooks/useAuth'
 import { APPOINTMENT_STATUS } from '@/constants/app'
 import { formatCurrency, formatPhoneDisplayPY } from '@/utils/formatters'
@@ -22,7 +22,7 @@ function getAptDate(apt) {
 function ClientHistoryModal({ isOpen, onClose, client }) {
   const { data: appointments, isLoading } = useClientHistory(client?.id)
   const { data: benefitsSettings } = useBenefitsSettings()
-  const redeemMutation = useRedeemFreeService()
+  const redeemMutation = useRedeemDiscount()
   const { user } = useAuth()
   const [confirmRedeem, setConfirmRedeem] = useState(false)
 
@@ -109,10 +109,10 @@ function ClientHistoryModal({ isOpen, onClose, client }) {
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 text-sm">
                       <Sparkles className="h-4 w-4 text-amber-600" />
-                      <span className="text-amber-600 font-medium">Servicio gratuito disponible</span>
+                      <span className="text-amber-600 font-medium">20% de descuento disponible</span>
                     </div>
                     <p className="text-sm text-brand-text-muted">
-                      {client.freeServices} servicio{(client.freeServices ?? 0) > 1 ? 's' : ''} gratuito{(client.freeServices ?? 0) > 1 ? 's' : ''} para canjear.
+                      {client.freeServices} descuento{(client.freeServices ?? 0) > 1 ? 's' : ''} del 20% para canjear.
                     </p>
                     <Button
                       variant="outline"
@@ -121,30 +121,30 @@ function ClientHistoryModal({ isOpen, onClose, client }) {
                       onClick={() => setConfirmRedeem(true)}
                     >
                       <Gift className="h-3.5 w-3.5" />
-                      Canjear Servicio Gratis
+                      Canjear Descuento
                     </Button>
                   </div>
                 ) : (
                   <div className="space-y-3">
                     <div className="flex items-center justify-between text-sm text-brand-text-muted">
-                      <span>{client.totalVisits ?? 0} de {client.nextRewardAt ?? benefitsSettings.rewardEveryVisits ?? 10} visitas</span>
-                      <span className="font-medium text-brand-primary">{Math.max((client.nextRewardAt ?? benefitsSettings.rewardEveryVisits ?? 10) - (client.totalVisits ?? 0), 0)} restantes</span>
+                      <span>{client.totalVisits ?? 0} de {client.nextRewardAt ?? benefitsSettings.rewardEveryVisits ?? 6} visitas</span>
+                      <span className="font-medium text-brand-primary">{Math.max((client.nextRewardAt ?? benefitsSettings.rewardEveryVisits ?? 6) - (client.totalVisits ?? 0), 0)} restantes</span>
                     </div>
                     <div className="h-2.5 w-full overflow-hidden rounded-full bg-brand-pastel/50">
                       <div
                         className="h-full rounded-full bg-brand-primary transition-all duration-500"
                         style={{
                           width: `${Math.min(
-                            ((client.totalVisits ?? 0) / (client.nextRewardAt ?? benefitsSettings.rewardEveryVisits ?? 10)) * 100,
+                            ((client.totalVisits ?? 0) / (client.nextRewardAt ?? benefitsSettings.rewardEveryVisits ?? 6)) * 100,
                             100
                           )}%`
                         }}
                       />
                     </div>
                     <p className="text-sm text-brand-text-muted">
-                      {client.totalVisits >= (client.nextRewardAt ?? benefitsSettings.rewardEveryVisits ?? 10)
+                      {client.totalVisits >= (client.nextRewardAt ?? benefitsSettings.rewardEveryVisits ?? 6)
                         ? '¡Listo para recompensa!'
-                        : `Faltan ${Math.max((client.nextRewardAt ?? benefitsSettings.rewardEveryVisits ?? 10) - (client.totalVisits ?? 0), 0)} visita${Math.max((client.nextRewardAt ?? 10) - (client.totalVisits ?? 0), 0) !== 1 ? 's' : ''} para obtener un servicio gratuito.`
+                        : `Faltan ${Math.max((client.nextRewardAt ?? benefitsSettings.rewardEveryVisits ?? 6) - (client.totalVisits ?? 0), 0)} visita${Math.max((client.nextRewardAt ?? 6) - (client.totalVisits ?? 0), 0) !== 1 ? 's' : ''} para obtener un 20% de descuento.`
                       }
                     </p>
                   </div>
@@ -221,8 +221,8 @@ function ClientHistoryModal({ isOpen, onClose, client }) {
                 await redeemMutation.mutateAsync({ clientId: client.id, adminUid: user?.uid })
                 setConfirmRedeem(false)
               }}
-              title="Canjear Servicio Gratis"
-              message={`¿Estás seguro de que deseas canjear 1 servicio gratuito para ${client.name}?`}
+              title="Canjear Descuento del 20%"
+              message={`¿Estás seguro de que deseas canjear 1 descuento del 20% para ${client.name}?`}
               confirmLabel="Canjear"
               isLoading={redeemMutation.isPending}
             />

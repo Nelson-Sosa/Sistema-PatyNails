@@ -1,7 +1,7 @@
 import { Gem, Gift, Bell, History, Calendar } from 'lucide-react'
 
 const BENEFITS = [
-  { icon: Gift, text: 'Programa de beneficios con recompensas cada 10 visitas.' },
+  { icon: Gift, text: 'Programa de beneficios con 20% de descuento cada 6 visitas.' },
   { icon: Bell, text: 'Recordatorios automáticos por WhatsApp (próximamente).' },
   { icon: History, text: 'Historial completo de servicios y visitas.' },
   { icon: Calendar, text: 'Reservas online 24/7 desde cualquier dispositivo.' },

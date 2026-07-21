@@ -5,7 +5,7 @@ import { ROUTES } from '@/routes/routes'
 import { cn } from '@/utils/cn'
 import ProgressBar from '@/components/ui/ProgressBar'
 
-const REWARD_EVERY = 10
+const REWARD_EVERY = 6
 
 function getMessage(progress, totalVisits) {
   if (totalVisits === 0) {
@@ -19,7 +19,7 @@ function getMessage(progress, totalVisits) {
   if (rewardReady) {
     return {
       title: '¡Felicidades!',
-      subtitle: 'Ya tienes un servicio gratuito disponible.',
+      subtitle: 'Ya tienes un 20% de descuento disponible.',
       isReward: true,
     }
   }
@@ -34,14 +34,14 @@ function getMessage(progress, totalVisits) {
   if (progress <= 6) {
     return {
       title: 'Ya llevas varias visitas.',
-      subtitle: 'Sigue así y pronto obtendrás un servicio gratuito.',
+      subtitle: 'Sigue así y pronto obtendrás un 20% de descuento.',
     }
   }
 
   const remaining = REWARD_EVERY - progress
   return {
     title: '¡Ya casi llegas!',
-    subtitle: `Solo te faltan ${remaining} visita${remaining !== 1 ? 's' : ''} para desbloquear un servicio gratuito.`,
+    subtitle: `Solo te faltan ${remaining} visita${remaining !== 1 ? 's' : ''} para desbloquear un 20% de descuento.`,
   }
 }
 
@@ -111,7 +111,7 @@ function MisBeneficiosCard({ totalVisits }) {
             <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1">
               <Gift className="h-3.5 w-3.5 text-emerald-400" />
               <span className="text-xs font-medium text-emerald-300">
-                SERVICIO GRATIS DISPONIBLE
+                20% DTO. DISPONIBLE
               </span>
             </div>
           )}
@@ -158,7 +158,7 @@ function MisBeneficiosCard({ totalVisits }) {
               <div>
                 <h2 className="text-lg font-bold text-white">Recompensa disponible</h2>
                 <p className="mt-2 text-sm text-slate-400 leading-relaxed">
-                  Ya puedes reclamar tu servicio gratuito en tu próxima visita.
+                  Ya puedes reclamar tu 20% de descuento en tu próxima visita.
                 </p>
               </div>
               <button

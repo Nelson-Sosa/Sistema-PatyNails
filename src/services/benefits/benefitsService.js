@@ -11,12 +11,14 @@ import { getBenefitsSettings } from '@/services/settings/settingsService'
  * Called when an appointment transitions to status "done".
  * - Marks the appointment as processed (prevents double-processing)
  * - Reads the client's current totalVisits (already incremented by incomeService)
- * - If totalVisits >= nextRewardAt, grants a free service
+ * - If totalVisits >= nextRewardAt, grants a 20% discount
  * - Records everything atomically in a transaction
  *
  * @param {string} clientId
  * @param {string} appointmentId
  * @returns {Promise<{rewardGranted: boolean, currentVisits: number, nextRewardAt: number, freeServices: number}|null>}
+ *
+ * NOTE: `freeServices` in the DB represents the count of available 20% discounts.
  */
 export async function processCompletedVisit(clientId, appointmentId) {
   if (!clientId || !appointmentId) return null
@@ -76,7 +78,7 @@ export async function processCompletedVisit(clientId, appointmentId) {
         appointmentId,
         type: 'visit',
         visitNumber: currentVisits,
-        rewardType: rewardGranted ? 'free_service' : null,
+        rewardType: rewardGranted ? 'discount' : null,
         rewardGranted,
         earnedAt: Timestamp.now(),
         redeemed: false,
@@ -93,14 +95,14 @@ export async function processCompletedVisit(clientId, appointmentId) {
 }
 
 /**
- * Redeem a free service for a client.
- * Deducts one free service and records the redemption in history.
+ * Redeem a 20% discount for a client.
+ * Deducts one discount and records the redemption in history.
  *
  * @param {string} clientId
  * @param {string} adminUid
  * @returns {Promise<{success: boolean}>}
  */
-export async function redeemFreeService(clientId, adminUid) {
+export async function redeemDiscount(clientId, adminUid) {
   if (!clientId) return { success: false }
 
   try {
@@ -133,7 +135,7 @@ export async function redeemFreeService(clientId, adminUid) {
         appointmentId: null,
         type: 'redemption',
         visitNumber: clientData.totalVisits ?? 0,
-        rewardType: 'free_service',
+        rewardType: 'discount',
         rewardGranted: true,
         earnedAt: Timestamp.now(),
         redeemed: true,
@@ -144,7 +146,7 @@ export async function redeemFreeService(clientId, adminUid) {
       return { success: true, freeServices: newFreeServices }
     })
   } catch (err) {
-    console.error('[benefits] redeemFreeService error:', err)
+    console.error('[benefits] redeemDiscount error:', err)
     return { success: false }
   }
 }
