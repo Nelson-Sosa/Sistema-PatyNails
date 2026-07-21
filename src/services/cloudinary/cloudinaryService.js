@@ -13,8 +13,11 @@
  * Deletion will be handled via Firebase Cloud Functions in a future phase.
  */
 
-const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
-const UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET
+const FALLBACK_CLOUD_NAME = 'trugj88o'
+const FALLBACK_UPLOAD_PRESET = 'patynails_uploads'
+
+const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || FALLBACK_CLOUD_NAME
+const UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || FALLBACK_UPLOAD_PRESET
 
 const MAX_FILE_SIZE_MB = 5
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
