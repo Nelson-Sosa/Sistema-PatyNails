@@ -36,20 +36,10 @@ jobs:
       - name: Force unique release version
         run: date +%s > dist/build-version.txt
 
-      - name: Install Firebase CLI
-        run: npm install -g firebase-tools
-
-      - name: Deploy to Firebase
-        run: |
-          set +e
-          output=$(firebase deploy --only hosting --token "${{ secrets.FIREBASE_TOKEN }}" 2>&1)
-          exit_code=$?
-          echo "$output"
-          if [ $exit_code -ne 0 ]; then
-            if echo "$output" | grep -q "is the current active version"; then
-              echo "Deployment succeeded (ignoring false positive error)"
-              exit 0
-            else
-              exit $exit_code
-            fi
-          fi
+      - name: Deploy to Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: '${{ secrets.GITHUB_TOKEN }}'
+          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
+          projectId: patynails-244c1
+          channelId: live
