@@ -66,7 +66,7 @@ export default function AddPortfolioWorkModal({ isOpen, onClose }) {
 
       // Upload all images to Cloudinary. Use a generic folder for portfolio.
       const timestamp = Date.now()
-      const folder = `marbenails/works/portfolio_${timestamp}`
+      const folder = `patynails/works/portfolio_${timestamp}`
       const uploaded = await uploadImages(files, folder, handleProgress)
 
       // Create Firestore document (type: portfolio)

@@ -61,7 +61,7 @@ export default function AddWorkModal({ isOpen, onClose, appointment }) {
       setIsUploading(true)
 
       // Upload all images to Cloudinary
-      const folder = `marbenails/works/${appointment.id}`
+      const folder = `patynails/works/${appointment.id}`
       const uploaded = await uploadImages(files, folder, handleProgress)
 
       // Create Firestore document

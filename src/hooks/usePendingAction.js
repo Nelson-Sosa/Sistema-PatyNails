@@ -1,6 +1,6 @@
 import { useCallback } from 'react'
 
-const PENDING_ACTION_KEY = 'marbenails_pending_action'
+const PENDING_ACTION_KEY = 'patynails_pending_action'
 
 /**
  * Hook to manage pending actions that require authentication.

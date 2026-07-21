@@ -9,7 +9,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { registerSchema } from '@/schemas/authSchemas'
 import { ROUTES } from '@/routes/routes'
 import { APP_NAME } from '@/constants/app'
-import LogoSrc from '@/assets/LogoMarbenails.jpeg'
+import LogoSrc from '@/assets/PatyNailsLogo.jpg'
 import { usePageTitle } from '@/hooks/usePageTitle'
 
 import Button from '@/components/ui/Button'
@@ -113,7 +113,7 @@ function RegisterPage() {
               label="Email"
               type="email"
               id="register-email"
-              placeholder="hola@marbenails.com"
+              placeholder="hola@patynails.com"
               autoComplete="email"
               leftIcon={<Mail className="h-4 w-4" />}
               error={errors.email?.message}

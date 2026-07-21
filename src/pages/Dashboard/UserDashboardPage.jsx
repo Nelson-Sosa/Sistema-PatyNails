@@ -51,7 +51,7 @@ function UserDashboardPage() {
         </h1>
         <p className="mt-1 text-sm text-brand-text-muted">
           {totalVisits === 0
-            ? 'Comienza tu experiencia Marbenails.'
+            ? 'Comienza tu experiencia patynails.'
             : `Tienes ${totalVisits} visita${totalVisits !== 1 ? 's' : ''} completada${totalVisits !== 1 ? 's' : ''}.`
           }
         </p>
@@ -74,7 +74,7 @@ function UserDashboardPage() {
             <div className="flex-1">
               <p className="text-base font-semibold text-brand-text">¿Lista para consentirte?</p>
               <p className="mt-1 text-sm text-brand-text-muted leading-relaxed">
-                Reserva tu primer turno y comienza a disfrutar los beneficios de Marbenails.
+                Reserva tu primer turno y comienza a disfrutar los beneficios de patynails.
               </p>
               <button
                 onClick={() => navigate(ROUTES.APPOINTMENTS)}

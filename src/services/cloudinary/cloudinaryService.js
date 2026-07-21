@@ -6,7 +6,7 @@
  *
  * Required environment variables in .env.local:
  *   VITE_CLOUDINARY_CLOUD_NAME=your_cloud_name
- *   VITE_CLOUDINARY_UPLOAD_PRESET=marbenails_works
+ *   VITE_CLOUDINARY_UPLOAD_PRESET=patynails_works
  *
  * NOTE: Image deletion is NOT implemented here. Cloudinary's delete API
  * requires an API Secret which must never be exposed on the frontend.
@@ -46,7 +46,7 @@ function validateFile(file) {
  * @param {number} retries - Number of retries left
  * @returns {Promise<{ publicId: string, secureUrl: string }>}
  */
-export async function uploadImage(file, folder = 'marbenails/works', onProgress, retries = 2) {
+export async function uploadImage(file, folder = 'patynails/works', onProgress, retries = 2) {
   if (!CLOUD_NAME || !UPLOAD_PRESET) {
     throw new Error(
       'Cloudinary no está configurado. Agregá VITE_CLOUDINARY_CLOUD_NAME y VITE_CLOUDINARY_UPLOAD_PRESET en .env.local'

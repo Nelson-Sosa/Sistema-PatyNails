@@ -10,7 +10,7 @@ const REWARD_EVERY = 10
 function getMessage(progress, totalVisits) {
   if (totalVisits === 0) {
     return {
-      title: 'Bienvenido a Marbenails',
+      title: 'Bienvenido a patynails',
       subtitle: 'Reserva tu primer turno y comienza a disfrutar de todos los beneficios.',
     }
   }

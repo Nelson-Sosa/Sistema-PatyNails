@@ -15,7 +15,7 @@ function UserBenefitsCard() {
           <Gem className="h-5 w-5 text-amber-400" />
         </span>
         <div>
-          <p className="text-sm font-medium text-white">Beneficios Marbenails</p>
+          <p className="text-sm font-medium text-white">Beneficios patynails</p>
           <p className="text-xs text-slate-500">Todo lo que ofrecemos para ti</p>
         </div>
       </div>
