@@ -4,6 +4,7 @@ import { cn } from '@/utils/cn'
 import { NAV_ITEMS } from '@/constants/navigation'
 import { APP_NAME } from '@/constants/app'
 import { useAuth } from '@/hooks/useAuth'
+import InstagramLink from './InstagramLink'
 
 /**
  * Sidebar component — responsive navigation panel.
@@ -117,31 +118,34 @@ function Sidebar({ isCollapsed, onToggleCollapse, isMobileOpen, onMobileClose })
           )}
         </nav>
 
-        {/* ── Collapse Toggle (desktop only) ─────────────────────────── */}
-        <div className="hidden border-t border-brand-pastel p-2 lg:block">
-          <button
-            onClick={onToggleCollapse}
-            title={isCollapsed ? 'Expandir menú' : 'Colapsar menú'}
-            aria-label={isCollapsed ? 'Expandir menú' : 'Colapsar menú'}
-            aria-expanded={!isCollapsed}
-            aria-controls="main-sidebar"
-            className={cn(
-              'flex w-full items-center rounded-lg px-3 py-2 min-h-[44px]',
-              'text-sm text-brand-text-muted transition-colors duration-200',
-              'hover:bg-brand-pastel/20 hover:text-brand-primary',
-              'focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/50',
-              isCollapsed ? 'justify-center' : 'gap-3'
-            )}
-          >
-            {isCollapsed ? (
-              <ChevronRight className="h-4 w-4" aria-hidden="true" />
-            ) : (
-              <>
-                <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-                <span>Colapsar</span>
-              </>
-            )}
-          </button>
+        {/* ── Bottom Section: Instagram + Collapse Toggle ──────────── */}
+        <div className="flex flex-col gap-1 border-t border-brand-pastel p-2">
+          <InstagramLink isCollapsed={isCollapsed} onMobileClose={onMobileClose} />
+          <div className="hidden lg:block">
+            <button
+              onClick={onToggleCollapse}
+              title={isCollapsed ? 'Expandir menú' : 'Colapsar menú'}
+              aria-label={isCollapsed ? 'Expandir menú' : 'Colapsar menú'}
+              aria-expanded={!isCollapsed}
+              aria-controls="main-sidebar"
+              className={cn(
+                'flex w-full items-center rounded-lg px-3 py-2 min-h-[44px]',
+                'text-sm text-brand-text-muted transition-colors duration-200',
+                'hover:bg-brand-pastel/20 hover:text-brand-primary',
+                'focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/50',
+                isCollapsed ? 'justify-center' : 'gap-3'
+              )}
+            >
+              {isCollapsed ? (
+                <ChevronRight className="h-4 w-4" aria-hidden="true" />
+              ) : (
+                <>
+                  <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+                  <span>Colapsar</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </aside>
     </>
