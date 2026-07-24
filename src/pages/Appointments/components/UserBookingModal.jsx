@@ -364,24 +364,11 @@ function UserBookingModal({ isOpen, onClose, defaultServiceId = null }) {
               <div className="space-y-4">
                 {/* Deposit summary */}
                 <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 space-y-2">
-                  <div className="flex items-center gap-2 mb-1">
+                  <div className="flex items-center gap-2 mb-2">
                     <Banknote className="h-4 w-4 text-amber-400" />
-                    <p className="text-sm font-semibold text-amber-400">Seña requerida</p>
+                    <p className="text-sm font-semibold text-amber-400">Pago de seña</p>
                   </div>
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div>
-                      <p className="text-xs text-brand-text-muted">Total del servicio</p>
-                      <p className="font-medium text-brand-text">{formatCurrency(selectedService?.price ?? 0)}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-brand-text-muted">Porcentaje de seña</p>
-                      <p className="font-medium text-brand-text">{paymentSettings?.percentage ?? 25}%</p>
-                    </div>
-                    <div className="col-span-2">
-                      <p className="text-xs text-brand-text-muted">Monto a transferir</p>
-                      <p className="text-lg font-bold text-amber-400">{formatCurrency(depositAmount)}</p>
-                    </div>
-                  </div>
+                  <Row label="Monto requerido" value={formatCurrency(depositAmount)} copyable />
                 </div>
 
                 {/* Bank info */}
@@ -394,32 +381,22 @@ function UserBookingModal({ isOpen, onClose, defaultServiceId = null }) {
                     <Row label="Titular" value={paymentSettings.owner} />
                   )}
                   {paymentSettings?.accountNumber && (
-                    <Row label="Cuenta" value={paymentSettings.accountNumber} />
+                    <Row label="Número de cuenta" value={paymentSettings.accountNumber} copyable />
                   )}
                   {paymentSettings?.accountAlias && (
                     <Row label="Alias" value={paymentSettings.accountAlias} copyable />
                   )}
 
-                  {/* QR image or URL */}
-                  {(paymentSettings?.qrUrl || paymentSettings?.qrPublicId) && (
-                    <div className="pt-2">
-                      <p className="text-xs text-brand-text-muted mb-2">QR de cobro</p>
-                      <img
-                        src={paymentSettings.qrUrl || `https://res.cloudinary.com/${import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'trugj88o'}/image/upload/${paymentSettings.qrPublicId}`}
-                        alt="QR de pago"
-                        className="mx-auto h-36 w-36 rounded-lg object-contain border border-brand-border"
-                      />
-                    </div>
-                  )}
+
                 </div>
 
                 {/* Instructions */}
-                {paymentSettings?.instructions && (
-                  <div className="flex gap-2 rounded-xl border border-brand-border bg-brand-card p-3">
-                    <Info className="h-4 w-4 text-brand-text-muted shrink-0 mt-0.5" />
-                    <p className="text-xs text-brand-text-muted">{paymentSettings.instructions}</p>
-                  </div>
-                )}
+                <div className="flex gap-2 rounded-xl border border-brand-border bg-brand-card p-3">
+                  <Info className="h-4 w-4 text-brand-text-muted shrink-0 mt-0.5" />
+                  <p className="text-xs text-brand-text-muted">
+                    {paymentSettings?.instructions || 'Después de realizar la transferencia, sube el comprobante para confirmar tu reserva.'}
+                  </p>
+                </div>
 
                 {/* Timeout notice */}
                 {paymentSettings?.paymentTimeoutMinutes && (
@@ -463,8 +440,17 @@ function UserBookingModal({ isOpen, onClose, defaultServiceId = null }) {
 
 // Small helper for bank info rows
 function Row({ label, value, copyable = false }) {
+  const [copied, setCopied] = useState(false)
+
   const handleCopy = () => {
-    navigator.clipboard.writeText(value).then(() => {}).catch(() => {})
+    // Strip non-numeric characters if it's currency format for amount copying, else copy verbatim
+    const textToCopy = value.toString().replace(/[₲\s\.]/g, '')
+    navigator.clipboard.writeText(copyable && label === 'Monto requerido' ? textToCopy : value)
+      .then(() => {
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
+      })
+      .catch(() => {})
   }
   return (
     <div className="flex items-center justify-between gap-4">
@@ -475,9 +461,21 @@ function Row({ label, value, copyable = false }) {
           <button
             type="button"
             onClick={handleCopy}
-            className="rounded px-1.5 py-0.5 text-xs text-brand-primary hover:bg-brand-pastel/30 transition-colors"
+            className={cn(
+              "rounded px-1.5 py-0.5 text-xs transition-colors flex items-center gap-1",
+              copied 
+                ? "bg-emerald-500/10 text-emerald-500" 
+                : "text-brand-primary hover:bg-brand-pastel/30"
+            )}
           >
-            Copiar
+            {copied ? (
+              <>
+                <Check className="h-3 w-3" />
+                Copiado
+              </>
+            ) : (
+              '📋 Copiar'
+            )}
           </button>
         )}
       </div>

@@ -83,8 +83,6 @@ const DEFAULT_PAYMENT_SETTINGS = {
   owner: '',
   accountNumber: '',
   accountAlias: '',
-  qrPublicId: '',
-  qrUrl: '',
   instructions: '',
   paymentTimeoutMinutes: 30,
 }

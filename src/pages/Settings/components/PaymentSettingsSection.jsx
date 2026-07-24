@@ -1,12 +1,10 @@
-import { useState, useRef } from 'react'
-import { Save, ToggleLeft, ToggleRight, Loader, ImagePlus, X } from 'lucide-react'
+import { useState } from 'react'
+import { Save, ToggleLeft, ToggleRight, Loader } from 'lucide-react'
 import { usePaymentSettings, useUpdatePaymentSettings } from '@/hooks/usePaymentSettings'
-import { uploadImage } from '@/services/cloudinary/cloudinaryService'
 import { cn } from '@/utils/cn'
 import toast from 'react-hot-toast'
 
 const PERCENTAGE_PRESETS = [25, 50]
-const QR_FOLDER = 'patynails/settings'
 
 /**
  * PaymentSettingsSection
@@ -20,9 +18,6 @@ export default function PaymentSettingsSection() {
 
   const [form, setForm] = useState(null)
   const [customPct, setCustomPct] = useState(false)
-  const [qrUploading, setQrUploading] = useState(false)
-  const [qrProgress, setQrProgress] = useState(0)
-  const qrInputRef = useRef(null)
 
   // Initialize form from fetched settings (only once)
   if (settings && form === null) {
@@ -45,29 +40,6 @@ export default function PaymentSettingsSection() {
     set('percentage', form?.percentage ?? 25)
   }
 
-  const handleQrUpload = async (e) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    try {
-      setQrUploading(true)
-      setQrProgress(0)
-      const result = await uploadImage(file, QR_FOLDER, (pct) => setQrProgress(pct))
-      set('qrPublicId', result.publicId)
-      set('qrUrl', result.secureUrl)
-      toast.success('QR subido correctamente')
-    } catch (err) {
-      toast.error(err.message || 'Error al subir el QR')
-    } finally {
-      setQrUploading(false)
-      if (qrInputRef.current) qrInputRef.current.value = ''
-    }
-  }
-
-  const handleRemoveQr = () => {
-    set('qrPublicId', '')
-    set('qrUrl', '')
-  }
-
   const handleSave = async () => {
     try {
       await saveSettings(form)
@@ -86,11 +58,7 @@ export default function PaymentSettingsSection() {
     )
   }
 
-  const qrSrc = form.qrUrl || (form.qrPublicId
-    ? `https://res.cloudinary.com/${import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'trugj88o'}/image/upload/${form.qrPublicId}`
-    : null)
-
-  return (
+    return (
     <div className="space-y-6">
       {/* ── Enable toggle */}
       <div className="flex items-center justify-between gap-4 rounded-xl border border-brand-border bg-brand-card p-4">
@@ -214,59 +182,6 @@ export default function PaymentSettingsSection() {
                 placeholder="Ej: PATYNAILS"
               />
             </div>
-          </div>
-
-          {/* QR image */}
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-brand-text">QR de cobro</label>
-            {qrSrc ? (
-              <div className="relative inline-block">
-                <img
-                  src={qrSrc}
-                  alt="QR de pago"
-                  className="h-36 w-36 rounded-xl border border-brand-border object-contain"
-                />
-                <button
-                  type="button"
-                  onClick={handleRemoveQr}
-                  className="absolute -right-2 -top-2 rounded-full bg-rose-500 p-1 text-white shadow hover:bg-rose-600 transition-colors"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </div>
-            ) : (
-              <div
-                onClick={() => !qrUploading && qrInputRef.current?.click()}
-                className="flex h-24 w-full cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-brand-border text-brand-text-muted hover:border-brand-primary/40 hover:text-brand-primary transition-colors"
-              >
-                {qrUploading ? (
-                  <div className="flex flex-col items-center gap-1">
-                    <Loader className="h-5 w-5 animate-spin" />
-                    <span className="text-xs">{qrProgress}%</span>
-                  </div>
-                ) : (
-                  <>
-                    <ImagePlus className="h-5 w-5" />
-                    <span className="text-sm">Subir QR de pago</span>
-                  </>
-                )}
-              </div>
-            )}
-            <input
-              ref={qrInputRef}
-              type="file"
-              accept=".jpg,.jpeg,.png,.webp"
-              className="hidden"
-              onChange={handleQrUpload}
-            />
-            <p className="text-xs text-brand-text-muted">O pegá una URL directa:</p>
-            <input
-              type="url"
-              value={form.qrUrl ?? ''}
-              onChange={(e) => set('qrUrl', e.target.value)}
-              placeholder="https://..."
-              className="h-9 w-full rounded-lg border border-brand-border bg-brand-bg px-3 text-sm text-brand-text focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
-            />
           </div>
 
           {/* Instructions */}
