@@ -3,6 +3,7 @@ import { X, CalendarDays, Clock, DollarSign, Scissors, Gift, Sparkles } from 'lu
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { useClientHistory } from '@/hooks/useClients'
+import { useClientWorks } from '@/hooks/useWorks'
 import { useBenefitsSettings, useRedeemDiscount } from '@/hooks/useBenefits'
 import { useAuth } from '@/hooks/useAuth'
 import { APPOINTMENT_STATUS } from '@/constants/app'
@@ -12,6 +13,7 @@ import Button from '@/components/ui/Button'
 import Spinner from '@/components/ui/Spinner'
 import Badge from '@/components/ui/Badge'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
+import WorkDetailModal from '@/pages/Works/components/WorkDetailModal'
 
 function getAptDate(apt) {
   if (apt.date?.toDate) return apt.date.toDate()
@@ -25,6 +27,9 @@ function ClientHistoryModal({ isOpen, onClose, client }) {
   const redeemMutation = useRedeemDiscount()
   const { user } = useAuth()
   const [confirmRedeem, setConfirmRedeem] = useState(false)
+  const [selectedWork, setSelectedWork] = useState(null)
+
+  const { data: works, isLoading: isLoadingWorks } = useClientWorks(client?.id)
 
   const metrics = useMemo(() => {
     if (!appointments) {
@@ -56,12 +61,12 @@ function ClientHistoryModal({ isOpen, onClose, client }) {
           <X className="h-5 w-5" />
         </button>
 
-        {isLoading ? (
+        {isLoading || isLoadingWorks ? (
           <div className="flex h-48 items-center justify-center">
             <Spinner size="lg" />
           </div>
         ) : (
-          <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-8">
             {/* ── Client Header ──────────────────────────────────────────── */}
             <div>
               <h2 className="text-xl font-bold text-brand-text">{client.name}</h2>
@@ -213,6 +218,49 @@ function ClientHistoryModal({ isOpen, onClose, client }) {
               )}
             </div>
 
+            {/* ── Photos & Works History ─────────────────────────────────── */}
+            <div>
+              <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-brand-text-muted">
+                Fotos y Trabajos
+              </h3>
+
+              {works && works.length > 0 ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                  {works.map((work) => {
+                    const thumb = work.photos?.[0]?.url
+                    if (!thumb) return null
+                    return (
+                      <div
+                        key={work.id}
+                        onClick={() => setSelectedWork(work)}
+                        className="group relative aspect-square cursor-pointer overflow-hidden rounded-xl bg-brand-pastel/20"
+                      >
+                        <img
+                          src={thumb}
+                          alt={work.title || 'Trabajo'}
+                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+                        <div className="absolute bottom-0 left-0 right-0 translate-y-4 p-3 opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100">
+                          <p className="truncate text-sm font-medium text-white shadow-sm">
+                            {work.title || 'Sin título'}
+                          </p>
+                          <p className="text-xs text-white/80 shadow-sm">
+                            {format(getAptDate({ date: work.createdAt }), "MMM yyyy", { locale: es })}
+                          </p>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div className="flex h-32 flex-col items-center justify-center rounded-xl border border-dashed border-brand-pastel bg-brand-pastel/10">
+                  <Sparkles className="mb-2 h-6 w-6 text-brand-text-muted" />
+                  <p className="text-sm text-brand-text-muted">No hay fotos registradas para este cliente</p>
+                </div>
+              )}
+            </div>
+
             {/* ── Redeem Confirmation ────────────────────────────────────── */}
             <ConfirmDialog
               isOpen={confirmRedeem}
@@ -228,12 +276,18 @@ function ClientHistoryModal({ isOpen, onClose, client }) {
             />
 
             {/* ── Close ──────────────────────────────────────────────────── */}
-            <div className="flex justify-end">
-              <Button variant="ghost" onClick={onClose}>Cerrar</Button>
+            <div className="flex justify-end pt-2 border-t border-brand-pastel">
+              <Button variant="ghost" onClick={onClose}>Cerrar historial</Button>
             </div>
           </div>
         )}
       </div>
+
+      <WorkDetailModal
+        isOpen={!!selectedWork}
+        onClose={() => setSelectedWork(null)}
+        work={selectedWork}
+      />
     </div>
   )
 }
