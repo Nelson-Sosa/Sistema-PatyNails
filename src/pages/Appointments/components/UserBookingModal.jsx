@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { X, ChevronLeft, Check, Clock } from 'lucide-react'
+import { X, ChevronLeft, Check, Clock, Banknote, Info } from 'lucide-react'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -8,14 +8,16 @@ import { useAuth } from '@/context/AuthContext'
 import { useServices } from '@/hooks/useServices'
 import { useActiveCategories } from '@/hooks/useServiceCategories'
 import { useCreateAppointment } from '@/hooks/useAppointments'
+import { usePaymentSettings } from '@/hooks/usePaymentSettings'
 import { checkAppointmentConflict } from '@/services/appointments/appointmentsService'
-import { BUSINESS_HOURS, USER_ROLES } from '@/constants/app'
+import { BUSINESS_HOURS, USER_ROLES, PAYMENT_PROVIDERS } from '@/constants/app'
 import { validateAppointmentDateTime } from '@/utils/dateValidation'
 import { formatCurrency } from '@/utils/formatters'
 import { cn } from '@/utils/cn'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import TimeSelect from '@/components/ui/TimeSelect'
+import PaymentProofUploader from './PaymentProofUploader'
 
 const SCHEMA_STEP2 = z.object({
   date: z.string().min(1, 'Seleccioná una fecha'),
@@ -32,24 +34,25 @@ const SCHEMA_STEP2 = z.object({
   if (data.time < BUSINESS_HOURS.START || data.time > BUSINESS_HOURS.END) {
     ctx.addIssue({ path: ['time'], code: z.ZodIssueCode.custom, message: `El horario de atención es de ${BUSINESS_HOURS.START} a ${BUSINESS_HOURS.END}` })
   }
-  // NOTA: La validación de turnos en el pasado se maneja en onSubmit según el rol.
   const minAllowedTime = new Date(Date.now() + 2 * 60 * 60 * 1000)
   if (appointmentTime < minAllowedTime) {
     ctx.addIssue({ path: ['time'], code: z.ZodIssueCode.custom, message: 'Debe ser con al menos 2 hs de anticipación' })
   }
 })
 
-const STEPS = { CATEGORY: 0, SERVICE: 1, DETAILS: 2 }
+const STEPS = { CATEGORY: 0, SERVICE: 1, DETAILS: 2, PAYMENT: 3 }
 
 function UserBookingModal({ isOpen, onClose, defaultServiceId = null }) {
   const { userProfile, user, role } = useAuth()
   const { data: services, isLoading: loadingServices } = useServices()
   const { data: categories } = useActiveCategories()
   const { mutateAsync: createAppointment, isPending } = useCreateAppointment()
+  const { data: paymentSettings } = usePaymentSettings()
 
   const [step, setStep] = useState(STEPS.DETAILS)
   const [selectedCategoryId, setSelectedCategoryId] = useState(null)
   const [selectedServiceId, setSelectedServiceId] = useState(defaultServiceId)
+  const [uploadedProof, setUploadedProof] = useState(null) // { publicId, secureUrl }
 
   const availableCategories = categories?.filter((c) =>
     services?.some((s) => s.categoryId === c.id && s.active !== false)
@@ -65,6 +68,16 @@ function UserBookingModal({ isOpen, onClose, defaultServiceId = null }) {
     return services.find((s) => s.id === selectedServiceId) || null
   }, [services, selectedServiceId])
 
+  // Is payment (seña) required?
+  const paymentEnabled = !!paymentSettings?.enabled
+
+  // Calculate the deposit amount
+  const depositAmount = useMemo(() => {
+    if (!selectedService || !paymentEnabled) return 0
+    const pct = paymentSettings?.percentage ?? 25
+    return Math.round((selectedService.price * pct) / 100)
+  }, [selectedService, paymentEnabled, paymentSettings?.percentage])
+
   const { register, handleSubmit, formState: { errors, isSubmitting }, reset, setValue, control } = useForm({
     resolver: zodResolver(SCHEMA_STEP2),
     defaultValues: { date: '', time: '10:00' }
@@ -72,6 +85,7 @@ function UserBookingModal({ isOpen, onClose, defaultServiceId = null }) {
 
   useEffect(() => {
     if (!isOpen) return
+    setUploadedProof(null)
     if (defaultServiceId) {
       setStep(STEPS.DETAILS)
       setSelectedServiceId(defaultServiceId)
@@ -96,32 +110,54 @@ function UserBookingModal({ isOpen, onClose, defaultServiceId = null }) {
     }
   }, [defaultServiceId, setValue])
 
-  const onSubmit = async (data) => {
+  // Called after date/time validation — either goes to payment step or submits
+  const handleDetailsSubmit = async (data) => {
+    if (!selectedService || !userProfile) {
+      toast.error('Error al obtener datos')
+      return
+    }
+
+    const dateValidation = validateAppointmentDateTime(data.date, data.time, role)
+    if (!dateValidation.valid) {
+      toast.error(dateValidation.message)
+      return
+    }
+
+    const [year, month, day] = data.date.split('-').map(Number)
+    const appointmentDate = new Date(year, month - 1, day, 12, 0, 0)
+
+    const hasConflict = await checkAppointmentConflict(appointmentDate, data.time, selectedService.duration)
+    if (hasConflict) {
+      toast.error('Ese horario ya está ocupado. Elegí otro horario disponible.')
+      return
+    }
+
+    if (paymentEnabled) {
+      setStep(STEPS.PAYMENT)
+    } else {
+      await submitAppointment(data)
+    }
+  }
+
+  // Final submission — always after payment step if enabled
+  const submitAppointment = async (formData) => {
     try {
-      if (!selectedService || !userProfile) {
-        toast.error('Error al obtener datos')
-        return
-      }
-
-      // Validar que el usuario pueda agendar en esta fecha/hora
-      // Los administradores pueden agendar en cualquier momento (pasado incluido)
-      const dateValidation = validateAppointmentDateTime(data.date, data.time, role)
-      if (!dateValidation.valid) {
-        toast.error(dateValidation.message)
-        return
-      }
-
-      const [year, month, day] = data.date.split('-').map(Number)
+      const [year, month, day] = formData.date.split('-').map(Number)
       const appointmentDate = new Date(year, month - 1, day, 12, 0, 0)
-
-      const hasConflict = await checkAppointmentConflict(appointmentDate, data.time, selectedService.duration)
-      if (hasConflict) {
-        toast.error('Ese horario ya está ocupado. Elegí otro horario disponible.')
-        return
-      }
 
       const clientId = userProfile?.uid || user?.uid
       const clientName = userProfile?.displayName || user?.displayName || user?.email?.split('@')[0] || 'Usuario Registrado'
+
+      const paymentPayload = paymentEnabled && uploadedProof
+        ? {
+            enabled: true,
+            provider: paymentSettings?.provider ?? PAYMENT_PROVIDERS.MANUAL_TRANSFER,
+            percentage: paymentSettings?.percentage ?? 25,
+            amount: depositAmount,
+            proof: uploadedProof,
+            timeoutMinutes: paymentSettings?.paymentTimeoutMinutes ?? 30,
+          }
+        : null
 
       await createAppointment({
         clientId,
@@ -132,14 +168,28 @@ function UserBookingModal({ isOpen, onClose, defaultServiceId = null }) {
         price: selectedService.price,
         duration: selectedService.duration,
         date: appointmentDate,
-        time: data.time,
+        time: formData.time,
+        payment: paymentPayload,
       })
 
-      toast.success('Turno agendado correctamente')
+      toast.success(
+        paymentEnabled
+          ? 'Turno enviado. Esperando aprobación del comprobante.'
+          : 'Turno agendado correctamente'
+      )
       onClose()
       reset()
     } catch {
       toast.error('No se pudo reservar el turno')
+    }
+  }
+
+  // Form submit handler — if we're on the payment step, finalize
+  const onSubmit = async (data) => {
+    if (step === STEPS.PAYMENT) {
+      await submitAppointment(data)
+    } else {
+      await handleDetailsSubmit(data)
     }
   }
 
@@ -148,9 +198,13 @@ function UserBookingModal({ isOpen, onClose, defaultServiceId = null }) {
   const today = new Date()
   const minDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
 
+  const totalSteps = paymentEnabled
+    ? [STEPS.CATEGORY, STEPS.SERVICE, STEPS.DETAILS, STEPS.PAYMENT]
+    : [STEPS.CATEGORY, STEPS.SERVICE, STEPS.DETAILS]
+
   const renderProgress = () => (
     <div className="flex items-center gap-2 mb-6">
-      {[STEPS.CATEGORY, STEPS.SERVICE, STEPS.DETAILS].map((s, i) => (
+      {totalSteps.map((s, i) => (
         <div key={s} className="flex items-center gap-2">
           <div className={cn(
             'flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium transition-colors',
@@ -160,11 +214,24 @@ function UserBookingModal({ isOpen, onClose, defaultServiceId = null }) {
           )}>
             {step > s ? <Check className="h-3 w-3" /> : i + 1}
           </div>
-          {i < 2 && <div className={cn('h-px w-6', step > s ? 'bg-emerald-500/30' : 'bg-brand-border')} />}
+          {i < totalSteps.length - 1 && <div className={cn('h-px w-6', step > s ? 'bg-emerald-500/30' : 'bg-brand-border')} />}
         </div>
       ))}
     </div>
   )
+
+  // ── Back button handler
+  const handleBack = () => {
+    if (step === STEPS.PAYMENT) {
+      setUploadedProof(null)
+      setStep(STEPS.DETAILS)
+    } else if (step === STEPS.SERVICE) {
+      setStep(STEPS.CATEGORY)
+    } else if (step === STEPS.DETAILS && !defaultServiceId) {
+      setSelectedServiceId(null)
+      setStep(availableCategories.length > 0 ? STEPS.CATEGORY : STEPS.SERVICE)
+    }
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -175,23 +242,21 @@ function UserBookingModal({ isOpen, onClose, defaultServiceId = null }) {
         </button>
 
         {step !== STEPS.CATEGORY && (
-          <button onClick={() => {
-            if (step === STEPS.SERVICE) setStep(STEPS.CATEGORY)
-            else if (step === STEPS.DETAILS && !defaultServiceId) {
-              setSelectedServiceId(null)
-              setStep(availableCategories.length > 0 ? STEPS.CATEGORY : STEPS.SERVICE)
-            }
-          }} className="absolute left-4 top-4 rounded-lg p-1 text-brand-text-muted hover:bg-brand-pastel/30 hover:text-brand-text">
+          <button onClick={handleBack} className="absolute left-4 top-4 rounded-lg p-1 text-brand-text-muted hover:bg-brand-pastel/30 hover:text-brand-text">
             <ChevronLeft className="h-5 w-5" />
           </button>
         )}
 
         <h2 className="text-xl font-bold text-brand-text text-center">Reservar Turno</h2>
-        <p className="mb-4 mt-1 text-center text-sm text-brand-text-muted">Podés agendar con hasta 2 horas de anticipación.</p>
+        <p className="mb-4 mt-1 text-center text-sm text-brand-text-muted">
+          {step === STEPS.PAYMENT
+            ? 'Realizá el pago de la seña para confirmar tu turno.'
+            : 'Podés agendar con hasta 2 horas de anticipación.'}
+        </p>
 
         {availableCategories.length > 0 && renderProgress()}
 
-        {/* Step 0: Category selection */}
+        {/* ── Step 0: Category */}
         {step === STEPS.CATEGORY && (
           <div className="space-y-3">
             <p className="text-sm font-medium text-brand-text">Elegí una categoría</p>
@@ -215,7 +280,7 @@ function UserBookingModal({ isOpen, onClose, defaultServiceId = null }) {
           </div>
         )}
 
-        {/* Step 1: Service selection */}
+        {/* ── Step 1: Service */}
         {step === STEPS.SERVICE && (
           <div className="space-y-3">
             <p className="text-sm font-medium text-brand-text">
@@ -251,9 +316,10 @@ function UserBookingModal({ isOpen, onClose, defaultServiceId = null }) {
           </div>
         )}
 
-        {/* Step 2: Date + Time form */}
-        {step === STEPS.DETAILS && (
+        {/* ── Step 2: Date + Time (shared form for steps 2 and 3) */}
+        {(step === STEPS.DETAILS || step === STEPS.PAYMENT) && (
           <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5">
+            {/* Service summary chip */}
             {selectedService && (
               <div className="flex items-center gap-3 rounded-xl border border-brand-border bg-brand-card p-3">
                 <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-pastel">
@@ -266,35 +332,153 @@ function UserBookingModal({ isOpen, onClose, defaultServiceId = null }) {
               </div>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Input
-                type="date"
-                label="Fecha"
-                min={role === USER_ROLES.ADMIN ? undefined : minDate}
-                error={errors.date?.message}
-                {...register('date')}
-              />
-              <Controller
-                name="time"
-                control={control}
-                render={({ field }) => (
-                  <TimeSelect
-                    label="Hora"
-                    startHour={7}
-                    endHour={20}
-                    stepMinutes={15}
-                    error={errors.time?.message}
-                    {...field}
-                  />
+            {/* Date + Time inputs — visible in both step 2 and step 3 (read-only in 3) */}
+            {step === STEPS.DETAILS && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input
+                  type="date"
+                  label="Fecha"
+                  min={role === USER_ROLES.ADMIN ? undefined : minDate}
+                  error={errors.date?.message}
+                  {...register('date')}
+                />
+                <Controller
+                  name="time"
+                  control={control}
+                  render={({ field }) => (
+                    <TimeSelect
+                      label="Hora"
+                      startHour={7}
+                      endHour={20}
+                      stepMinutes={15}
+                      error={errors.time?.message}
+                      {...field}
+                    />
+                  )}
+                />
+              </div>
+            )}
+
+            {/* ── Step 3: Payment */}
+            {step === STEPS.PAYMENT && (
+              <div className="space-y-4">
+                {/* Deposit summary */}
+                <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 space-y-2">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Banknote className="h-4 w-4 text-amber-400" />
+                    <p className="text-sm font-semibold text-amber-400">Seña requerida</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div>
+                      <p className="text-xs text-brand-text-muted">Total del servicio</p>
+                      <p className="font-medium text-brand-text">{formatCurrency(selectedService?.price ?? 0)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-brand-text-muted">Porcentaje de seña</p>
+                      <p className="font-medium text-brand-text">{paymentSettings?.percentage ?? 25}%</p>
+                    </div>
+                    <div className="col-span-2">
+                      <p className="text-xs text-brand-text-muted">Monto a transferir</p>
+                      <p className="text-lg font-bold text-amber-400">{formatCurrency(depositAmount)}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bank info */}
+                <div className="rounded-xl border border-brand-border bg-brand-bg p-4 space-y-2">
+                  <p className="text-xs font-semibold text-brand-text-muted uppercase tracking-wider">Datos bancarios</p>
+                  {paymentSettings?.bank && (
+                    <Row label="Banco" value={paymentSettings.bank} />
+                  )}
+                  {paymentSettings?.owner && (
+                    <Row label="Titular" value={paymentSettings.owner} />
+                  )}
+                  {paymentSettings?.accountNumber && (
+                    <Row label="Cuenta" value={paymentSettings.accountNumber} />
+                  )}
+                  {paymentSettings?.accountAlias && (
+                    <Row label="Alias" value={paymentSettings.accountAlias} copyable />
+                  )}
+
+                  {/* QR image or URL */}
+                  {(paymentSettings?.qrUrl || paymentSettings?.qrPublicId) && (
+                    <div className="pt-2">
+                      <p className="text-xs text-brand-text-muted mb-2">QR de cobro</p>
+                      <img
+                        src={paymentSettings.qrUrl || `https://res.cloudinary.com/${import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'trugj88o'}/image/upload/${paymentSettings.qrPublicId}`}
+                        alt="QR de pago"
+                        className="mx-auto h-36 w-36 rounded-lg object-contain border border-brand-border"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Instructions */}
+                {paymentSettings?.instructions && (
+                  <div className="flex gap-2 rounded-xl border border-brand-border bg-brand-card p-3">
+                    <Info className="h-4 w-4 text-brand-text-muted shrink-0 mt-0.5" />
+                    <p className="text-xs text-brand-text-muted">{paymentSettings.instructions}</p>
+                  </div>
                 )}
-              />
-            </div>
+
+                {/* Timeout notice */}
+                {paymentSettings?.paymentTimeoutMinutes && (
+                  <p className="text-xs text-brand-text-muted text-center">
+                    Tenés {paymentSettings.paymentTimeoutMinutes} minutos para enviar el comprobante.
+                  </p>
+                )}
+
+                {/* Proof uploader */}
+                <div>
+                  <p className="mb-2 text-sm font-medium text-brand-text">
+                    Subí el comprobante de transferencia
+                  </p>
+                  <PaymentProofUploader
+                    onUploaded={(proof) => setUploadedProof(proof)}
+                    onClear={() => setUploadedProof(null)}
+                    disabled={isPending}
+                  />
+                </div>
+              </div>
+            )}
 
             <div className="mt-4 flex justify-end gap-3">
-              <Button variant="ghost" onClick={onClose} disabled={isSubmitting}>Cancelar</Button>
-              <Button type="submit" loading={isSubmitting || isPending}>Confirmar Reserva</Button>
+              <Button variant="ghost" onClick={onClose} disabled={isSubmitting || isPending}>
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                loading={isSubmitting || isPending}
+                disabled={step === STEPS.PAYMENT && !uploadedProof}
+              >
+                {step === STEPS.PAYMENT ? 'Enviar comprobante' : 'Continuar'}
+              </Button>
             </div>
           </form>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// Small helper for bank info rows
+function Row({ label, value, copyable = false }) {
+  const handleCopy = () => {
+    navigator.clipboard.writeText(value).then(() => {}).catch(() => {})
+  }
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <span className="text-xs text-brand-text-muted shrink-0">{label}</span>
+      <div className="flex items-center gap-1.5">
+        <span className="text-sm font-medium text-brand-text">{value}</span>
+        {copyable && (
+          <button
+            type="button"
+            onClick={handleCopy}
+            className="rounded px-1.5 py-0.5 text-xs text-brand-primary hover:bg-brand-pastel/30 transition-colors"
+          >
+            Copiar
+          </button>
         )}
       </div>
     </div>

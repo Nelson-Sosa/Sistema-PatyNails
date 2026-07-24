@@ -12,7 +12,7 @@ import {
   serverTimestamp,
 } from 'firebase/firestore'
 import { db } from '@/firebase/config'
-import { COLLECTIONS, APPOINTMENT_STATUS, DEFAULT_PROFESSIONAL_ID } from '@/constants/app'
+import { COLLECTIONS, APPOINTMENT_STATUS, PAYMENT_STATUS, DEFAULT_PROFESSIONAL_ID } from '@/constants/app'
 import { NOTIFICATION_TYPES } from '@/constants/notifications'
 import { createIncomeEntry } from '@/services/income/incomeService'
 import { createNotification } from '@/services/notifications/notificationsService'
@@ -65,13 +65,48 @@ export async function getAppointmentsByDateRange(start, end) {
 
 /**
  * Create a new appointment.
+ *
+ * When paymentData is provided (seña enabled), the appointment is created with
+ * payment info embedded. The appointment always starts as 'pending'.
+ *
  * @param {Object} data
+ * @param {Object|null} [data.payment] - Optional payment snapshot (see model below)
  * @returns {Promise<string>} new document ID
  */
 export async function createAppointment(data) {
   const [hours, minutes] = data.time.split(':').map(Number)
   const preciseDate = data.date instanceof Date ? new Date(data.date) : new Date(data.date)
   preciseDate.setHours(hours, minutes, 0, 0)
+
+  const now = Timestamp.now()
+
+  // Build the payment object if a seña is required
+  let paymentPayload = null
+  if (data.payment && data.payment.enabled) {
+    const timeoutMinutes = data.payment.timeoutMinutes ?? 30
+    const expiresAt = new Date(Date.now() + timeoutMinutes * 60 * 1000)
+
+    paymentPayload = {
+      enabled: true,
+      provider: data.payment.provider ?? 'manual_transfer',
+      method: 'bank_transfer',
+      percentage: data.payment.percentage,
+      amount: data.payment.amount,
+      status: PAYMENT_STATUS.PROOF_SUBMITTED, // proof already uploaded before creating
+      proof: {
+        publicId: data.payment.proof?.publicId ?? '',
+        secureUrl: data.payment.proof?.secureUrl ?? '',
+      },
+      expiresAt: Timestamp.fromDate(expiresAt),
+      submittedAt: now,
+      reviewedBy: null,
+      reviewedAt: null,
+      rejectionReason: '',
+      paymentHistory: [
+        { status: PAYMENT_STATUS.PROOF_SUBMITTED, createdAt: now, createdBy: data.clientId },
+      ],
+    }
+  }
 
   const payload = {
     clientId: data.clientId,
@@ -88,6 +123,7 @@ export async function createAppointment(data) {
     clientPhone: data.clientPhone ?? null,
     reminderSent: false,
     reminderSentAt: null,
+    ...(paymentPayload ? { payment: paymentPayload } : {}),
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   }
@@ -99,13 +135,24 @@ export async function createAppointment(data) {
     await createIncomeEntry({ id: ref.id, ...payload })
   }
 
-  createNotification({
-    title: 'Nuevo turno',
-    message: `${payload.clientName} reservó ${payload.serviceName}`,
-    type: NOTIFICATION_TYPES.APPOINTMENT_CREATED,
-    entityId: ref.id,
-    entityType: 'appointment',
-  })
+  // Notification depends on whether there's a payment proof pending review
+  if (paymentPayload) {
+    createNotification({
+      title: 'Comprobante de seña recibido',
+      message: `${payload.clientName} reservó ${payload.serviceName} y envió el comprobante`,
+      type: NOTIFICATION_TYPES.PAYMENT_PROOF_SUBMITTED,
+      entityId: ref.id,
+      entityType: 'appointment',
+    })
+  } else {
+    createNotification({
+      title: 'Nuevo turno',
+      message: `${payload.clientName} reservó ${payload.serviceName}`,
+      type: NOTIFICATION_TYPES.APPOINTMENT_CREATED,
+      entityId: ref.id,
+      entityType: 'appointment',
+    })
+  }
 
   return ref.id
 }
@@ -284,5 +331,139 @@ export async function checkAppointmentConflict(date, time, durationMinutes, excl
 
     // Standard interval overlap check: [newStart, newEnd) ∩ [aptStart, aptEnd) ≠ ∅
     return newStart < aptEnd && newEnd > aptStart
+  })
+}
+
+// ─── Payment (Seña) Functions ─────────────────────────────────────────────────
+
+/**
+ * Client submits a payment proof for the first time.
+ * Updates payment.proof, payment.status → proof_submitted, payment.submittedAt.
+ * Creates an admin notification.
+ *
+ * @param {string} appointmentId
+ * @param {{ publicId: string, secureUrl: string }} proof
+ */
+export async function submitPaymentProof(appointmentId, proof) {
+  const ref = doc(db, COLLECTIONS.APPOINTMENTS, appointmentId)
+  const snap = await getDoc(ref)
+  if (!snap.exists()) throw new Error('Turno no encontrado')
+
+  const data = snap.data()
+  const now = Timestamp.now()
+
+  // Append to paymentHistory
+  const history = data.payment?.paymentHistory ?? []
+  history.push({ status: PAYMENT_STATUS.PROOF_SUBMITTED, createdAt: now, createdBy: data.clientId })
+
+  await updateDoc(ref, {
+    'payment.proof': proof,
+    'payment.status': PAYMENT_STATUS.PROOF_SUBMITTED,
+    'payment.submittedAt': now,
+    'payment.paymentHistory': history,
+    updatedAt: serverTimestamp(),
+  })
+
+  createNotification({
+    title: 'Comprobante de seña recibido',
+    message: `${data.clientName || 'Un cliente'} envió el comprobante de pago para ${data.serviceName}`,
+    type: NOTIFICATION_TYPES.PAYMENT_PROOF_SUBMITTED,
+    entityId: appointmentId,
+    entityType: 'appointment',
+  })
+}
+
+/**
+ * Client replaces a previously rejected proof.
+ * Resets payment.status → proof_submitted and updates proof.
+ *
+ * @param {string} appointmentId
+ * @param {{ publicId: string, secureUrl: string }} proof
+ */
+export async function replacePaymentProof(appointmentId, proof) {
+  return submitPaymentProof(appointmentId, proof)
+}
+
+/**
+ * Admin approves a payment proof.
+ * Sets payment.status → approved and automatically confirms the appointment.
+ * These two states remain independent: appointment.status and payment.status.
+ *
+ * @param {string} appointmentId
+ * @param {string} adminUid
+ */
+export async function approvePayment(appointmentId, adminUid) {
+  const ref = doc(db, COLLECTIONS.APPOINTMENTS, appointmentId)
+  const snap = await getDoc(ref)
+  if (!snap.exists()) throw new Error('Turno no encontrado')
+
+  const data = snap.data()
+  const now = Timestamp.now()
+
+  // Append to paymentHistory
+  const history = data.payment?.paymentHistory ?? []
+  history.push({ status: PAYMENT_STATUS.APPROVED, createdAt: now, createdBy: adminUid })
+
+  await updateDoc(ref, {
+    // Payment state update
+    'payment.status': PAYMENT_STATUS.APPROVED,
+    'payment.reviewedBy': adminUid,
+    'payment.reviewedAt': now,
+    'payment.rejectionReason': '',
+    'payment.paymentHistory': history,
+    // Automatic appointment confirmation (independent state transition)
+    status: APPOINTMENT_STATUS.CONFIRMED,
+    updatedAt: serverTimestamp(),
+  })
+
+  // Notify the client
+  createNotification({
+    title: 'Seña aprobada ✓',
+    message: `Tu pago para ${data.serviceName} fue aprobado. Tu turno está confirmado.`,
+    type: NOTIFICATION_TYPES.PAYMENT_APPROVED,
+    entityId: appointmentId,
+    entityType: 'appointment',
+    targetClientId: data.clientId,
+  })
+}
+
+/**
+ * Admin rejects a payment proof with a reason.
+ * Sets payment.status → rejected. The appointment stays 'pending' and the
+ * client can upload a new proof.
+ *
+ * @param {string} appointmentId
+ * @param {string} adminUid
+ * @param {string} reason
+ */
+export async function rejectPayment(appointmentId, adminUid, reason) {
+  const ref = doc(db, COLLECTIONS.APPOINTMENTS, appointmentId)
+  const snap = await getDoc(ref)
+  if (!snap.exists()) throw new Error('Turno no encontrado')
+
+  const data = snap.data()
+  const now = Timestamp.now()
+
+  // Append to paymentHistory
+  const history = data.payment?.paymentHistory ?? []
+  history.push({ status: PAYMENT_STATUS.REJECTED, createdAt: now, createdBy: adminUid })
+
+  await updateDoc(ref, {
+    'payment.status': PAYMENT_STATUS.REJECTED,
+    'payment.reviewedBy': adminUid,
+    'payment.reviewedAt': now,
+    'payment.rejectionReason': reason ?? '',
+    'payment.paymentHistory': history,
+    updatedAt: serverTimestamp(),
+  })
+
+  // Notify the client
+  createNotification({
+    title: 'Seña rechazada',
+    message: `Tu comprobante para ${data.serviceName} fue rechazado. Motivo: ${reason || 'Sin motivo especificado'}`,
+    type: NOTIFICATION_TYPES.PAYMENT_REJECTED,
+    entityId: appointmentId,
+    entityType: 'appointment',
+    targetClientId: data.clientId,
   })
 }

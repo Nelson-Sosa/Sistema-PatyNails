@@ -1,5 +1,4 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { startOfDay, endOfDay } from 'date-fns'
 import {
   getAppointmentsByDate,
   getAppointmentsByDateRange,
@@ -8,6 +7,10 @@ import {
   cancelAppointment,
   getAppointmentsByClient,
   updateAppointmentDetails,
+  submitPaymentProof,
+  replacePaymentProof,
+  approvePayment,
+  rejectPayment,
 } from '@/services/appointments/appointmentsService'
 
 const QUERY_KEY = 'appointments'
@@ -48,7 +51,7 @@ export function useAppointmentsByDateRange(start, end) {
 
 /**
  * Fetch all appointments for a specific client.
- * @param {string} clientId 
+ * @param {string} clientId
  */
 export function useAppointmentsByClient(clientId) {
   return useQuery({
@@ -113,6 +116,62 @@ export function useCancelAppointment() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [QUERY_KEY] })
       qc.invalidateQueries({ queryKey: ['dashboard', 'stats'] })
+    },
+  })
+}
+
+// ─── Payment (Seña) Mutations ─────────────────────────────────────────────────
+
+/**
+ * Mutation: submit a new payment proof (first upload).
+ */
+export function useSubmitPaymentProof() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, proof }) => submitPaymentProof(id, proof),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [QUERY_KEY] })
+    },
+  })
+}
+
+/**
+ * Mutation: replace a rejected proof with a new image.
+ */
+export function useReplacePaymentProof() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, proof }) => replacePaymentProof(id, proof),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [QUERY_KEY] })
+    },
+  })
+}
+
+/**
+ * Mutation: admin approves a payment proof.
+ * Automatically transitions appointment.status → confirmed.
+ */
+export function useApprovePayment() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, adminUid }) => approvePayment(id, adminUid),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [QUERY_KEY] })
+      qc.invalidateQueries({ queryKey: ['dashboard', 'stats'] })
+    },
+  })
+}
+
+/**
+ * Mutation: admin rejects a payment proof with a reason.
+ */
+export function useRejectPayment() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, adminUid, reason }) => rejectPayment(id, adminUid, reason),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [QUERY_KEY] })
     },
   })
 }

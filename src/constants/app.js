@@ -22,6 +22,27 @@ export const APPOINTMENT_STATUS = {
   COMPLETED: 'done',
 }
 
+/**
+ * Payment status values — independent from appointment status.
+ * Represents the lifecycle of a deposit (seña) payment.
+ */
+export const PAYMENT_STATUS = {
+  PENDING_PROOF: 'pending_proof',     // Waiting for client to upload proof
+  PROOF_SUBMITTED: 'proof_submitted', // Proof uploaded, awaiting admin review
+  APPROVED: 'approved',               // Admin approved → triggers appointment confirmation
+  REJECTED: 'rejected',               // Admin rejected → client can re-upload
+}
+
+/**
+ * Payment provider identifiers.
+ * Prepared for future integrations (Bancard, Ueno Empresas, etc.).
+ */
+export const PAYMENT_PROVIDERS = {
+  MANUAL_TRANSFER: 'manual_transfer', // Current implementation: bank transfer + manual proof
+  BANCARD: 'bancard',                 // Future: Bancard online gateway
+  UENO: 'ueno',                       // Future: Ueno Empresas gateway
+}
+
 /** Status display config (label + Badge variant) — used by StatusMenu, Dashboard, etc. */
 export const STATUS_CONFIG = {
   [APPOINTMENT_STATUS.PENDING]: { label: 'Pendiente', variant: 'default' },

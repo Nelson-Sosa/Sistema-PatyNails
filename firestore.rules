@@ -23,7 +23,6 @@ service cloud.firestore {
       allow create: if isOwner(userId) && request.resource.data.role == "user";
       
       // El usuario puede actualizar su perfil, pero NO puede cambiarse el rol ni el estado de verificación
-      // Usamos .get() para evitar errores si los campos no existen en usuarios viejos
       allow update: if isOwner(userId) &&
         request.resource.data.get('role', 'user') == resource.data.get('role', 'user') &&
         request.resource.data.get('phoneVerified', false) == resource.data.get('phoneVerified', false) &&
@@ -41,8 +40,11 @@ service cloud.firestore {
     }
 
     // ─── SETTINGS ───
+    // settings/salon and settings/payments both live under /settings/{docId}
     match /settings/{docId} {
+      // Everyone authenticated can read (needed for booking flow and public info)
       allow read: if isAuthenticated();
+      // Only admins can write (bank data, payment config, etc.)
       allow write: if isAdmin();
     }
 
@@ -60,10 +62,10 @@ service cloud.firestore {
 
     // ─── TURNOS ───
     match /appointments/{docId} {
-      // Admin tiene control total sobre todos los turnos (incluyendo pasados)
+      // Admin tiene control total sobre todos los turnos
       allow read, write: if isAdmin();
 
-      // Usuario: puede leer TODOS los turnos (necesario para verificar disponibilidad en el frontend)
+      // Usuario: puede leer TODOS los turnos (necesario para verificar disponibilidad)
       allow read: if isAuthenticated();
 
       // Usuario: solo puede crear turnos a futuro y a su propio nombre
@@ -71,10 +73,30 @@ service cloud.firestore {
         && request.resource.data.clientId == request.auth.uid
         && request.resource.data.date >= request.time;
 
-      // Usuario: solo puede cancelar (status='cancelled') sus propios turnos.
+      // Usuario: puede actualizar sus propios turnos en dos casos:
+      //   1) Cancelar (status = 'cancelled') — regla original
+      //   2) Subir/reemplazar comprobante de seña:
+      //        - Solo modifica el campo 'payment' y 'updatedAt'
+      //        - El nuevo payment.status debe ser 'proof_submitted'
+      //        - El clientId del turno debe coincidir con el usuario autenticado
+      //        - No puede cambiar otros campos del turno (status, date, price, etc.)
       allow update: if isAuthenticated()
         && resource.data.clientId == request.auth.uid
-        && request.resource.data.status == 'cancelled';
+        && (
+          // Case 1: Cancel
+          (
+            request.resource.data.status == 'cancelled' &&
+            request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['status', 'updatedAt'])
+          )
+          ||
+          // Case 2: Submit / replace proof (payment.status → proof_submitted)
+          (
+            request.resource.data.get('payment.status', '') == 'proof_submitted' &&
+            request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['payment', 'updatedAt'])
+          )
+        );
     }
 
     // ─── INGRESOS ───
@@ -102,9 +124,6 @@ service cloud.firestore {
       allow read, write: if isAdmin();
       
       // Público no autenticado y clientes autenticados: pueden leer cualquier trabajo.
-      // El filtrado de published==true y clientId se aplica en las queries del servicio.
-      // Nota: Firestore no puede evaluar resource.data en queries sin autenticación,
-      // por lo que la seguridad de visibilidad se maneja a nivel de aplicación.
       allow read: if true;
       
       // Solo el admin puede crear, editar y eliminar trabajos.
