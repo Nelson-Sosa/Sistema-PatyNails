@@ -127,9 +127,8 @@ export default function WeeklyAgendaView() {
   const businessStartMin = businessSettings ? toMinutes(businessSettings.openingTime) : 0
   const businessEndMin = businessSettings ? toMinutes(businessSettings.closingTime) : 0
   const slotInterval = businessSettings?.slotInterval || 30
-  const totalSlots = Math.floor((businessEndMin - businessStartMin) / slotInterval)
   
-  const totalHeight = totalSlots * rowHeight
+  const totalHeight = timeSlots.length * rowHeight
 
   // Group appointments by day
   const appointmentsByDay = useMemo(() => {

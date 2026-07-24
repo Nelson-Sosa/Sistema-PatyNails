@@ -38,7 +38,7 @@ export function generateTimeSlots(start, end, interval) {
   const slots = []
   const startMin = toMinutes(start)
   const endMin = toMinutes(end)
-  for (let m = startMin; m < endMin; m += interval) {
+  for (let m = startMin; m <= endMin; m += interval) {
     slots.push({
       start: minutesToTime(m),
       startMin: m
