@@ -15,8 +15,7 @@ import { validateAppointmentDateTime } from '@/utils/dateValidation'
 import { formatCurrency } from '@/utils/formatters'
 import { cn } from '@/utils/cn'
 import Button from '@/components/ui/Button'
-import Input from '@/components/ui/Input'
-import TimeSelect from '@/components/ui/TimeSelect'
+import WeeklyAvailabilityCalendar from '@/components/booking/WeeklyAvailabilityCalendar'
 import PaymentProofUploader from './PaymentProofUploader'
 
 const SCHEMA_STEP2 = z.object({
@@ -78,10 +77,13 @@ function UserBookingModal({ isOpen, onClose, defaultServiceId = null }) {
     return Math.round((selectedService.price * pct) / 100)
   }, [selectedService, paymentEnabled, paymentSettings?.percentage])
 
-  const { register, handleSubmit, formState: { errors, isSubmitting }, reset, setValue, control } = useForm({
+  const { register, handleSubmit, formState: { errors, isSubmitting }, reset, setValue, control, watch } = useForm({
     resolver: zodResolver(SCHEMA_STEP2),
-    defaultValues: { date: '', time: '10:00' }
+    defaultValues: { date: '', time: '' }
   })
+
+  const formDate = watch('date')
+  const formTime = watch('time')
 
   useEffect(() => {
     if (!isOpen) return
@@ -89,24 +91,24 @@ function UserBookingModal({ isOpen, onClose, defaultServiceId = null }) {
     if (defaultServiceId) {
       setStep(STEPS.DETAILS)
       setSelectedServiceId(defaultServiceId)
-      reset({ date: '', time: '10:00' })
+      reset({ date: '', time: '' })
     } else if (availableCategories.length === 0) {
       setStep(STEPS.SERVICE)
       setSelectedCategoryId(null)
       setSelectedServiceId(null)
-      reset({ date: '', time: '10:00' })
+      reset({ date: '', time: '' })
     } else {
       setStep(STEPS.CATEGORY)
       setSelectedCategoryId(null)
       setSelectedServiceId(null)
-      reset({ date: '', time: '10:00' })
+      reset({ date: '', time: '' })
     }
-  }, [isOpen, defaultServiceId])
+  }, [isOpen, defaultServiceId, reset, availableCategories.length])
 
   useEffect(() => {
     if (defaultServiceId) {
       setValue('date', '')
-      setValue('time', '10:00')
+      setValue('time', '')
     }
   }, [defaultServiceId, setValue])
 
@@ -194,9 +196,6 @@ function UserBookingModal({ isOpen, onClose, defaultServiceId = null }) {
   }
 
   if (!isOpen) return null
-
-  const today = new Date()
-  const minDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
 
   const totalSteps = paymentEnabled
     ? [STEPS.CATEGORY, STEPS.SERVICE, STEPS.DETAILS, STEPS.PAYMENT]
@@ -334,28 +333,42 @@ function UserBookingModal({ isOpen, onClose, defaultServiceId = null }) {
 
             {/* Date + Time inputs — visible in both step 2 and step 3 (read-only in 3) */}
             {step === STEPS.DETAILS && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Input
-                  type="date"
-                  label="Fecha"
-                  min={role === USER_ROLES.ADMIN ? undefined : minDate}
-                  error={errors.date?.message}
-                  {...register('date')}
+              <div className="w-full space-y-4">
+                <WeeklyAvailabilityCalendar
+                  serviceDuration={selectedService?.duration || 60}
+                  value={{ date: formDate, time: formTime }}
+                  onChange={(val) => {
+                    setValue('date', val.date, { shouldValidate: true })
+                    setValue('time', val.time, { shouldValidate: true })
+                  }}
                 />
-                <Controller
-                  name="time"
-                  control={control}
-                  render={({ field }) => (
-                    <TimeSelect
-                      label="Hora"
-                      startHour={7}
-                      endHour={20}
-                      stepMinutes={15}
-                      error={errors.time?.message}
-                      {...field}
+                {(errors.date || errors.time) && (
+                  <div className="p-3 rounded-lg bg-red-50 border border-red-200">
+                    {errors.date && <p className="text-sm text-red-600">{errors.date.message}</p>}
+                    {errors.time && !errors.date && <p className="text-sm text-red-600">{errors.time.message}</p>}
+                  </div>
+                )}
+                
+                {formDate && formTime && selectedService && (
+                  <div className="rounded-xl border border-brand-border bg-brand-card p-4 space-y-3">
+                    <p className="text-sm font-semibold text-brand-text mb-2">Resumen del turno</p>
+                    <Row label="Servicio" value={selectedService.name} />
+                    <Row 
+                      label="Fecha" 
+                      value={new Date(formDate + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })} 
                     />
-                  )}
-                />
+                    <Row label="Hora" value={formTime} />
+                    <Row 
+                      label="Duración" 
+                      value={
+                        selectedService.duration >= 60 
+                          ? `${Math.floor(selectedService.duration / 60)}h ${selectedService.duration % 60 > 0 ? `${selectedService.duration % 60}m` : ''}`
+                          : `${selectedService.duration} min`
+                      } 
+                    />
+                    <Row label="Precio" value={formatCurrency(selectedService.price)} />
+                  </div>
+                )}
               </div>
             )}
 
@@ -444,7 +457,7 @@ function Row({ label, value, copyable = false }) {
 
   const handleCopy = () => {
     // Strip non-numeric characters if it's currency format for amount copying, else copy verbatim
-    const textToCopy = value.toString().replace(/[₲\s\.]/g, '')
+    const textToCopy = value.toString().replace(/[₲\s.]/g, '')
     navigator.clipboard.writeText(copyable && label === 'Monto requerido' ? textToCopy : value)
       .then(() => {
         setCopied(true)

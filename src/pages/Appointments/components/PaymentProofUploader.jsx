@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { Upload, X, ImageIcon, CheckCircle, AlertCircle } from 'lucide-react'
+import { Upload, X, CheckCircle, AlertCircle } from 'lucide-react'
 import { uploadImage } from '@/services/cloudinary/cloudinaryService'
 import { cn } from '@/utils/cn'
 
