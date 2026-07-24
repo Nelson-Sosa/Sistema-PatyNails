@@ -331,11 +331,11 @@ function UserBookingModal({ isOpen, onClose, defaultServiceId = null }) {
 
         {/* ── Step 2: Date + Time (shared form for steps 2 and 3) */}
         {(step === STEPS.DETAILS || step === STEPS.PAYMENT) && (
-          <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5">
+          <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
             {/* Service summary chip */}
             {selectedService && (
-              <div className="flex items-center gap-3 rounded-xl border border-brand-border bg-brand-card p-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-pastel">
+              <div className="flex items-center gap-3 rounded-xl border border-brand-border bg-brand-card p-2.5 sm:p-3">
+                <div className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full bg-brand-pastel">
                   <Clock className="h-4 w-4 text-brand-primary" />
                 </div>
                 <div>
@@ -364,8 +364,8 @@ function UserBookingModal({ isOpen, onClose, defaultServiceId = null }) {
                 )}
                 
                 {formDate && formTime && selectedService && (
-                  <div className="rounded-xl border border-brand-border bg-brand-card p-4 space-y-3">
-                    <p className="text-sm font-semibold text-brand-text mb-2">Resumen del turno</p>
+                  <div className="rounded-xl border border-brand-border bg-brand-card p-3 sm:p-4 space-y-2.5 mt-2">
+                    <p className="text-sm font-semibold text-brand-text mb-1">Resumen del turno</p>
                     <Row label="Servicio" value={selectedService.name} />
                     <Row 
                       label="Fecha" 
