@@ -20,7 +20,7 @@ import PaymentProofUploader from './PaymentProofUploader'
 
 const SCHEMA_STEP2 = z.object({
   date: z.string().min(1, 'Seleccioná una fecha'),
-  time: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'Hora inválida (HH:mm)'),
+  time: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'Seleccioná un horario disponible'),
 }).superRefine((data, ctx) => {
   if (!data.date || !data.time) return
   const [year, month, day] = data.date.split('-').map(Number)
