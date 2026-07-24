@@ -227,7 +227,7 @@ function ClientHistoryModal({ isOpen, onClose, client }) {
               {works && works.length > 0 ? (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                   {works.map((work) => {
-                    const thumb = work.photos?.[0]?.url
+                    const thumb = work.photos?.[0]?.secureUrl
                     if (!thumb) return null
                     return (
                       <div
