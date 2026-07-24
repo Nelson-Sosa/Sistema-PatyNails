@@ -10,8 +10,9 @@ import { useActiveCategories } from '@/hooks/useServiceCategories'
 import { useCreateAppointment } from '@/hooks/useAppointments'
 import { usePaymentSettings } from '@/hooks/usePaymentSettings'
 import { checkAppointmentConflict } from '@/services/appointments/appointmentsService'
-import { BUSINESS_HOURS, USER_ROLES, PAYMENT_PROVIDERS } from '@/constants/app'
+import { USER_ROLES, PAYMENT_PROVIDERS } from '@/constants/app'
 import { validateAppointmentDateTime } from '@/utils/dateValidation'
+import { useBusinessSettings } from '@/hooks/useBusinessSettings'
 import { formatCurrency } from '@/utils/formatters'
 import { cn } from '@/utils/cn'
 import Button from '@/components/ui/Button'
@@ -21,22 +22,6 @@ import PaymentProofUploader from './PaymentProofUploader'
 const SCHEMA_STEP2 = z.object({
   date: z.string().min(1, 'Seleccioná una fecha'),
   time: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'Seleccioná un horario disponible'),
-}).superRefine((data, ctx) => {
-  if (!data.date || !data.time) return
-  const [year, month, day] = data.date.split('-').map(Number)
-  const [hours, minutes] = data.time.split(':').map(Number)
-  const appointmentTime = new Date(year, month - 1, day, hours, minutes, 0)
-
-  if (!BUSINESS_HOURS.DAYS.includes(appointmentTime.getDay())) {
-    ctx.addIssue({ path: ['date'], code: z.ZodIssueCode.custom, message: 'El salón no atiende este día' })
-  }
-  if (data.time < BUSINESS_HOURS.START || data.time > BUSINESS_HOURS.END) {
-    ctx.addIssue({ path: ['time'], code: z.ZodIssueCode.custom, message: `El horario de atención es de ${BUSINESS_HOURS.START} a ${BUSINESS_HOURS.END}` })
-  }
-  const minAllowedTime = new Date(Date.now() + 2 * 60 * 60 * 1000)
-  if (appointmentTime < minAllowedTime) {
-    ctx.addIssue({ path: ['time'], code: z.ZodIssueCode.custom, message: 'Debe ser con al menos 2 hs de anticipación' })
-  }
 })
 
 const STEPS = { CATEGORY: 0, SERVICE: 1, DETAILS: 2, PAYMENT: 3 }
@@ -47,6 +32,7 @@ function UserBookingModal({ isOpen, onClose, defaultServiceId = null }) {
   const { data: categories } = useActiveCategories()
   const { mutateAsync: createAppointment, isPending } = useCreateAppointment()
   const { data: paymentSettings } = usePaymentSettings()
+  const { settings: businessSettings } = useBusinessSettings()
 
   const [step, setStep] = useState(STEPS.DETAILS)
   const [selectedCategoryId, setSelectedCategoryId] = useState(null)
@@ -123,6 +109,13 @@ function UserBookingModal({ isOpen, onClose, defaultServiceId = null }) {
     if (!dateValidation.valid) {
       toast.error(dateValidation.message)
       return
+    }
+
+    if (businessSettings) {
+      if (data.time < businessSettings.openingTime || data.time > businessSettings.closingTime) {
+        toast.error(`El horario de atención es de ${businessSettings.openingTime} a ${businessSettings.closingTime}`)
+        return
+      }
     }
 
     const [year, month, day] = data.date.split('-').map(Number)

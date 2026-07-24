@@ -115,8 +115,8 @@ export const WHATSAPP_TRIGGERS = {
   BIRTHDAY: 'birthday',
 }
 
-/** Business hours constraints */
-export const BUSINESS_HOURS = {
+/** @deprecated Use useBusinessSettings hook instead */
+export const DEPRECATED_BUSINESS_HOURS = {
   START: '07:00',
   END: '20:00',
   DAYS: [0, 1, 2, 3, 4, 5, 6], // 0 = Sunday, 1 = Monday, etc.

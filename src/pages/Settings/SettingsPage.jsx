@@ -1,6 +1,7 @@
-import { Settings, CreditCard } from 'lucide-react'
+import { Settings, CreditCard, Clock } from 'lucide-react'
 import { usePageTitle } from '@/hooks/usePageTitle'
 import PaymentSettingsSection from './components/PaymentSettingsSection'
+import BusinessSettingsSection from './components/BusinessSettingsSection'
 
 function SettingsPage() {
   usePageTitle('Configuración')
@@ -14,6 +15,22 @@ function SettingsPage() {
           Administrá los ajustes del sistema del salón.
         </p>
       </div>
+
+      {/* ── Business Hours section */}
+      <section>
+        <div className="flex items-center gap-2 mb-4">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-pastel">
+            <Clock className="h-4 w-4 text-brand-primary" />
+          </div>
+          <div>
+            <h2 className="text-base font-semibold text-brand-text">Horarios del negocio</h2>
+            <p className="text-xs text-brand-text-muted">Configurá la apertura, cierre e intervalos de la agenda</p>
+          </div>
+        </div>
+        <div className="rounded-2xl border border-brand-border bg-brand-card p-5">
+          <BusinessSettingsSection />
+        </div>
+      </section>
 
       {/* ── Payments section */}
       <section>

@@ -10,8 +10,9 @@ import { useServices } from '@/hooks/useServices'
 import { useCreateAppointment, useUpdateAppointmentDetails } from '@/hooks/useAppointments'
 import { useAuth } from '@/context/AuthContext'
 import { checkAppointmentConflict } from '@/services/appointments/appointmentsService'
-import { BUSINESS_HOURS, USER_ROLES } from '@/constants/app'
+import { USER_ROLES } from '@/constants/app'
 import { validateAppointmentDateTime } from '@/utils/dateValidation'
+import { useBusinessSettings } from '@/hooks/useBusinessSettings'
 import { formatCurrency } from '@/utils/formatters'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
@@ -23,34 +24,6 @@ const schema = z.object({
   serviceId: z.string().min(1, 'Seleccioná un servicio'),
   date: z.string().min(1, 'Seleccioná una fecha'),
   time: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'Hora inválida (HH:mm)')
-}).superRefine((data, ctx) => {
-  if (!data.date || !data.time) return
-  
-  const [year, month, day] = data.date.split('-').map(Number)
-  const [hours, minutes] = data.time.split(':').map(Number)
-  
-  const appointmentTime = new Date(year, month - 1, day, hours, minutes, 0)
-  
-  // Validate day of week
-  if (!BUSINESS_HOURS.DAYS.includes(appointmentTime.getDay())) {
-    ctx.addIssue({
-      path: ['date'],
-      code: z.ZodIssueCode.custom,
-      message: 'El salón no atiende este día',
-    })
-  }
-
-  // Validate time range
-  if (data.time < BUSINESS_HOURS.START || data.time > BUSINESS_HOURS.END) {
-    ctx.addIssue({
-      path: ['time'],
-      code: z.ZodIssueCode.custom,
-      message: `El horario de atención es de ${BUSINESS_HOURS.START} a ${BUSINESS_HOURS.END}`,
-    })
-  }
-
-  // NOTA: La validación de turnos en el pasado se maneja en onSubmit
-  // según el rol del usuario (admin puede agendar en pasado, cliente no).
 })
 
 function NewAppointmentModal({ isOpen, onClose, initialDate, initialTime, appointmentToEdit = null }) {
@@ -59,6 +32,7 @@ function NewAppointmentModal({ isOpen, onClose, initialDate, initialTime, appoin
   const { data: services, isLoading: loadingServices } = useServices()
   const { mutateAsync: createAppointment, isPending: isCreating } = useCreateAppointment()
   const { mutateAsync: updateAppointment, isPending: isUpdating } = useUpdateAppointmentDetails()
+  const { settings: businessSettings } = useBusinessSettings()
   
   const isEditing = !!appointmentToEdit
   const isPending = isCreating || isUpdating
@@ -114,6 +88,13 @@ function NewAppointmentModal({ isOpen, onClose, initialDate, initialTime, appoin
       if (!dateValidation.valid) {
         toast.error(dateValidation.message)
         return
+      }
+
+      if (businessSettings) {
+        if (data.time < businessSettings.openingTime || data.time > businessSettings.closingTime) {
+          toast.error(`El horario de atención es de ${businessSettings.openingTime} a ${businessSettings.closingTime}`)
+          return
+        }
       }
 
       // Convert date string to a Date object at noon to avoid timezone shift
@@ -243,9 +224,9 @@ function NewAppointmentModal({ isOpen, onClose, initialDate, initialTime, appoin
             render={({ field }) => (
               <TimeSelect
                 label="Hora del turno"
-                startHour={7}
-                endHour={20}
-                stepMinutes={15}
+                startHour={businessSettings ? Number(businessSettings.openingTime.split(':')[0]) : 7}
+                endHour={businessSettings ? Number(businessSettings.closingTime.split(':')[0]) : 20}
+                stepMinutes={businessSettings?.slotInterval || 30}
                 error={errors.time?.message}
                 {...field}
               />

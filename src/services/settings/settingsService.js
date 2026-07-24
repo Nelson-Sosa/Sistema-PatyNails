@@ -4,6 +4,7 @@ import { COLLECTIONS, BENEFITS } from '@/constants/app'
 
 const SETTINGS_DOC_ID = 'salon'
 const PAYMENTS_DOC_ID = 'payments'
+const BUSINESS_DOC_ID = 'business'
 
 function settingsRef() {
   return doc(db, COLLECTIONS.SETTINGS, SETTINGS_DOC_ID)
@@ -11,6 +12,10 @@ function settingsRef() {
 
 function paymentsSettingsRef() {
   return doc(db, COLLECTIONS.SETTINGS, PAYMENTS_DOC_ID)
+}
+
+function businessSettingsRef() {
+  return doc(db, COLLECTIONS.SETTINGS, BUSINESS_DOC_ID)
 }
 
 export async function getSettings() {
@@ -112,3 +117,40 @@ export async function updatePaymentSettings(config) {
     await setDoc(ref, { ...config, createdAt: serverTimestamp(), updatedAt: serverTimestamp() })
   }
 }
+
+// ─── Business Settings (settings/business — independent document) ──────────────
+
+const DEFAULT_BUSINESS_SETTINGS = {
+  openingTime: '07:00',
+  closingTime: '19:00',
+  slotInterval: 30,
+  minimumAppointmentDuration: 30,
+  timezone: 'America/Asuncion',
+  workingDays: [1, 2, 3, 4, 5, 6], // Monday to Saturday
+}
+
+/**
+ * Read business settings from Firestore (settings/business).
+ * Returns defaults if the document doesn't exist.
+ * @returns {Promise<Object>}
+ */
+export async function getBusinessSettings() {
+  const snap = await getDoc(businessSettingsRef())
+  if (!snap.exists()) return { ...DEFAULT_BUSINESS_SETTINGS }
+  return { ...DEFAULT_BUSINESS_SETTINGS, ...snap.data() }
+}
+
+/**
+ * Save business settings to Firestore (settings/business).
+ * @param {Object} config
+ */
+export async function updateBusinessSettings(config) {
+  const ref = businessSettingsRef()
+  const snap = await getDoc(ref)
+  if (snap.exists()) {
+    await updateDoc(ref, { ...config, updatedAt: serverTimestamp() })
+  } else {
+    await setDoc(ref, { ...config, createdAt: serverTimestamp(), updatedAt: serverTimestamp() })
+  }
+}
+

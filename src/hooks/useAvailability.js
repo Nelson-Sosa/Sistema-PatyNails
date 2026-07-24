@@ -1,6 +1,8 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useAppointmentsByDateRange } from './useAppointments'
-import { BUSINESS_HOURS, APPOINTMENT_STATUS } from '@/constants/app'
+import { APPOINTMENT_STATUS } from '@/constants/app'
+import { useBusinessSettings } from './useBusinessSettings'
+import { calculateAvailableSlots } from '@/services/scheduleService'
 
 // Helper: Get Monday of a given date's week
 function getMonday(d) {
@@ -8,20 +10,6 @@ function getMonday(d) {
   const day = date.getDay()
   const diff = date.getDate() - day + (day === 0 ? -6 : 1) // adjust when day is sunday
   return new Date(date.setDate(diff))
-}
-
-// Helper: HH:mm to minutes since midnight
-function timeToMinutes(timeStr) {
-  if (!timeStr) return 0
-  const [h, m] = timeStr.split(':').map(Number)
-  return h * 60 + m
-}
-
-// Helper: Minutes since midnight to HH:mm
-function minutesToTime(minutes) {
-  const h = Math.floor(minutes / 60)
-  const m = minutes % 60
-  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
 }
 
 /**
@@ -44,22 +32,25 @@ export function useAvailability(serviceDuration = 60) {
     return end
   }, [currentWeekStart])
 
+  // Fetch business settings
+  const { settings: businessSettings, isLoading: isLoadingSettings } = useBusinessSettings()
+
   // Fetch appointments for the current week
-  const { data: appointments = [], isLoading, isError } = useAppointmentsByDateRange(
+  const { data: appointments = [], isLoading: isLoadingAppointments, isError } = useAppointmentsByDateRange(
     currentWeekStart,
     currentWeekEnd
   )
 
+  const isLoading = isLoadingSettings || isLoadingAppointments
+
   // Calculate availability for each day in the week
   const weekDays = useMemo(() => {
+    if (!businessSettings) return []
+
     const days = []
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     const now = new Date() // to check past times today
-
-    const startMinutes = timeToMinutes(BUSINESS_HOURS.START)
-    const endMinutes = timeToMinutes(BUSINESS_HOURS.END)
-    const step = 15 // 15 minutes increments
 
     for (let i = 0; i < 7; i++) {
       const date = new Date(currentWeekStart)
@@ -67,7 +58,7 @@ export function useAvailability(serviceDuration = 60) {
       date.setHours(0, 0, 0, 0)
 
       const isPastDay = date < today
-      const isWorkingDay = BUSINESS_HOURS.DAYS.includes(date.getDay())
+      const isWorkingDay = businessSettings.workingDays?.includes(date.getDay()) ?? [1, 2, 3, 4, 5, 6].includes(date.getDay())
       const isToday = date.getTime() === today.getTime()
       
       let slots = []
@@ -79,41 +70,10 @@ export function useAvailability(serviceDuration = 60) {
           const aptDate = apt.date.toDate ? apt.date.toDate() : new Date(apt.date)
           return aptDate.getFullYear() === date.getFullYear() &&
                  aptDate.getMonth() === date.getMonth() &&
-                 aptDate.getDate() === date.getDate() &&
-                 apt.status !== APPOINTMENT_STATUS.CANCELLED &&
-                 apt.status !== APPOINTMENT_STATUS.NO_SHOW
+                 aptDate.getDate() === date.getDate()
         })
 
-        // Generate slots
-        for (let min = startMinutes; min + serviceDuration <= endMinutes; min += step) {
-          const slotStart = min
-          const slotEnd = min + serviceDuration
-
-          // If it's today, ensure the slot is at least 2 hours from now
-          if (isToday) {
-            const slotDate = new Date(date)
-            slotDate.setHours(Math.floor(slotStart / 60), slotStart % 60, 0, 0)
-            const minAllowedTime = new Date(now.getTime() + 2 * 60 * 60 * 1000)
-            if (slotDate < minAllowedTime) {
-              continue // Skip this slot, it's too soon
-            }
-          }
-
-          // Check conflict with appointments
-          const hasConflict = dayAppointments.some(apt => {
-            if (!apt.time) return false
-            const aptStart = timeToMinutes(apt.time)
-            const aptDuration = Math.min(Number(apt.duration) || 60, 720)
-            const aptEnd = aptStart + aptDuration
-
-            // Overlap condition
-            return slotStart < aptEnd && slotEnd > aptStart
-          })
-
-          if (!hasConflict) {
-            slots.push(minutesToTime(slotStart))
-          }
-        }
+        slots = calculateAvailableSlots(dayAppointments, serviceDuration, businessSettings, isToday, now)
       }
 
       days.push({
@@ -129,7 +89,7 @@ export function useAvailability(serviceDuration = 60) {
     }
     
     return days
-  }, [currentWeekStart, appointments, serviceDuration])
+  }, [currentWeekStart, appointments, serviceDuration, businessSettings])
 
   // Auto-select first available day when week changes or loaded
   useEffect(() => {

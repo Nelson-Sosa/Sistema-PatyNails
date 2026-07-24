@@ -14,7 +14,9 @@ import {
 } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { useAppointmentsByDateRange, useUpdateAppointmentStatus } from '@/hooks/useAppointments'
-import { BUSINESS_HOURS, APPOINTMENT_STATUS, STATUS_CONFIG } from '@/constants/app'
+import { APPOINTMENT_STATUS, STATUS_CONFIG } from '@/constants/app'
+import { useBusinessSettings } from '@/hooks/useBusinessSettings'
+import { generateTimeSlots, isSlotOccupied, toMinutes } from '@/services/scheduleService'
 import { cn } from '@/utils/cn'
 import Button from '@/components/ui/Button'
 import Spinner from '@/components/ui/Spinner'
@@ -24,19 +26,7 @@ import AppointmentDrawer from './AppointmentDrawer'
 // ── Constants ──────────────────────────────────────────────────────────────
 
 const DAY_LABELS = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB']
-const SLOT_INTERVAL = 15
-
-const BUSINESS_START_MIN = (() => {
-  const [h, m] = BUSINESS_HOURS.START.split(':').map(Number)
-  return h * 60 + m
-})()
-
-const BUSINESS_END_MIN = (() => {
-  const [h, m] = BUSINESS_HOURS.END.split(':').map(Number)
-  return h * 60 + m
-})()
-
-const TOTAL_SLOTS = Math.floor((BUSINESS_END_MIN - BUSINESS_START_MIN) / SLOT_INTERVAL)
+// These will be calculated dynamically now
 
 const ROW_HEIGHT_BREAKPOINTS = {
   base: 22,
@@ -78,40 +68,7 @@ const NON_BLOCKING_STATUSES = new Set([
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
-function toMinutes(time) {
-  const [h, m] = time.split(':').map(Number)
-  return h * 60 + m
-}
-
-function generateTimeSlots(start, end, interval) {
-  const slots = []
-  const startMin = toMinutes(start)
-  const endMin = toMinutes(end)
-  for (let m = startMin; m < endMin; m += interval) {
-    const h = Math.floor(m / 60)
-    const min = m % 60
-    const label = `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`
-    slots.push({ start: label, startMin: m })
-  }
-  return slots
-}
-
-function getMonday(date) {
-  return startOfWeek(date, { weekStartsOn: 1 })
-}
-
-function getWeekDays(weekStart) {
-  return Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
-}
-
-function isSlotOccupied(appointment, slotStartMin, slotEndMin) {
-  if (!appointment.time || appointment.duration == null) return false
-  if (NON_BLOCKING_STATUSES.has(appointment.status)) return false
-  const aptStart = toMinutes(appointment.time)
-  const safeDuration = Math.min(Number(appointment.duration) || 60, 720)
-  const aptEnd = aptStart + safeDuration
-  return aptStart < slotEndMin && aptEnd > slotStartMin
-}
+// Removed helper functions that are now in scheduleService.js
 
 function getRowHeight() {
   if (typeof window === 'undefined') return ROW_HEIGHT_BREAKPOINTS.base
@@ -150,19 +107,23 @@ export default function WeeklyAgendaView() {
   const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 })
   const weekDays = useMemo(() => getWeekDays(weekStart), [weekStart])
 
-  const { data: appointments, isLoading } = useAppointmentsByDateRange(weekStart, weekEnd)
+  const { data: appointments, isLoading: isLoadingAppointments } = useAppointmentsByDateRange(weekStart, weekEnd)
   const { mutate: updateStatus } = useUpdateAppointmentStatus()
+  
+  const { settings: businessSettings, isLoading: isLoadingSettings } = useBusinessSettings()
+  const isLoading = isLoadingAppointments || isLoadingSettings
 
-  // 15-min time slots
-  const timeSlots = useMemo(
-    () => generateTimeSlots(BUSINESS_HOURS.START, BUSINESS_HOURS.END, SLOT_INTERVAL),
-    []
-  )
+  const timeSlots = useMemo(() => {
+    if (!businessSettings) return []
+    return generateTimeSlots(businessSettings.openingTime, businessSettings.closingTime, businessSettings.slotInterval)
+  }, [businessSettings])
 
-  // Nota: timeSlots se usa directamente en la columna horaria.
-  // Si cambia SLOT_INTERVAL (ej: 15, 20, 30), las etiquetas se actualizan automáticamente.
-
-  const totalHeight = TOTAL_SLOTS * rowHeight
+  const businessStartMin = businessSettings ? toMinutes(businessSettings.openingTime) : 0
+  const businessEndMin = businessSettings ? toMinutes(businessSettings.closingTime) : 0
+  const slotInterval = businessSettings?.slotInterval || 30
+  const totalSlots = Math.floor((businessEndMin - businessStartMin) / slotInterval)
+  
+  const totalHeight = totalSlots * rowHeight
 
   // Group appointments by day
   const appointmentsByDay = useMemo(() => {
@@ -183,9 +144,9 @@ export default function WeeklyAgendaView() {
   // Current time indicator position
   const currentTimeMinutes = now.getHours() * 60 + now.getMinutes()
   const isWithinBusinessHours =
-    currentTimeMinutes >= BUSINESS_START_MIN && currentTimeMinutes < BUSINESS_END_MIN
+    currentTimeMinutes >= businessStartMin && currentTimeMinutes < businessEndMin
   const currentTimeTop =
-    ((currentTimeMinutes - BUSINESS_START_MIN) / SLOT_INTERVAL) * rowHeight
+    ((currentTimeMinutes - businessStartMin) / slotInterval) * rowHeight
 
   // ── Handlers ────────────────────────────────────────────────────────────
 
@@ -197,7 +158,7 @@ export default function WeeklyAgendaView() {
     (day, slot) => {
       const dayKey = format(day, 'yyyy-MM-dd')
       const dayAppts = appointmentsByDay[dayKey] || []
-      const slotEnd = slot.startMin + SLOT_INTERVAL
+      const slotEnd = slot.startMin + slotInterval
       const found = dayAppts.find(apt => isSlotOccupied(apt, slot.startMin, slotEnd))
 
       if (found) {
@@ -234,7 +195,7 @@ export default function WeeklyAgendaView() {
 
   const handleNewAppointment = () => {
     setEditingAppointment(null)
-    setModalPrefill({ date: today, time: BUSINESS_HOURS.START })
+    setModalPrefill({ date: today, time: businessSettings?.openingTime || '07:00' })
     setIsModalOpen(true)
   }
 
@@ -394,13 +355,13 @@ export default function WeeklyAgendaView() {
                       .filter(apt => {
                         if (NON_BLOCKING_STATUSES.has(apt.status)) return false
                         const startMin = toMinutes(apt.time)
-                        return startMin >= BUSINESS_START_MIN
+                        return startMin >= businessStartMin
                       })
                       .map((apt) => {
                         const aptStartMin = toMinutes(apt.time)
                         const safeDuration = Math.min(Number(apt.duration) || 60, 720)
-                        const blocks = Math.ceil(safeDuration / SLOT_INTERVAL)
-                        const top = ((aptStartMin - BUSINESS_START_MIN) / SLOT_INTERVAL) * rowHeight
+                        const blocks = Math.ceil(safeDuration / slotInterval)
+                        const top = ((aptStartMin - businessStartMin) / slotInterval) * rowHeight
                         const height = Math.min(blocks * rowHeight, totalHeight - top)
                         const visible = height >= rowHeight * 0.5
                         const showContent = blocks >= 2
