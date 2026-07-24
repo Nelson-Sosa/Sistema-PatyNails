@@ -233,27 +233,41 @@ function UserBookingModal({ isOpen, onClose, defaultServiceId = null }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-lg rounded-2xl border border-brand-border bg-brand-card p-4 sm:p-6 shadow-2xl max-w-[95vw] max-h-[90vh] overflow-y-auto">
-        <button onClick={onClose} className="absolute right-4 top-4 rounded-lg p-1 text-brand-text-muted hover:bg-brand-pastel/30 hover:text-brand-text z-50">
-          <X className="h-5 w-5" />
-        </button>
-
-        {step !== STEPS.CATEGORY && (
-          <button onClick={handleBack} className="absolute left-4 top-4 rounded-lg p-1 text-brand-text-muted hover:bg-brand-pastel/30 hover:text-brand-text">
-            <ChevronLeft className="h-5 w-5" />
+      <div className="relative w-full max-w-lg rounded-2xl border border-brand-border bg-brand-card shadow-2xl flex flex-col max-w-[95vw] max-h-[92vh] sm:max-h-[90vh] overflow-hidden">
+        
+        {/* Header - Fixed */}
+        <div className="relative shrink-0 border-b border-brand-border/40 p-4 sm:px-6 sm:py-5 bg-brand-card z-10">
+          <button 
+            onClick={onClose} 
+            className="absolute right-3 top-3 sm:right-5 sm:top-4 rounded-lg p-2 text-brand-text-muted hover:bg-brand-pastel/50 hover:text-brand-text z-50 transition-colors"
+          >
+            <X className="h-5 w-5" />
           </button>
-        )}
 
-        <h2 className="text-xl font-bold text-brand-text text-center">Reservar Turno</h2>
-        <p className="mb-4 mt-1 text-center text-sm text-brand-text-muted">
-          {step === STEPS.PAYMENT
-            ? 'Realizá el pago de la seña para confirmar tu turno.'
-            : 'Podés agendar con hasta 2 horas de anticipación.'}
-        </p>
+          {step !== STEPS.CATEGORY && (
+            <button 
+              onClick={handleBack} 
+              className="absolute left-3 top-3 sm:left-5 sm:top-4 rounded-lg p-2 text-brand-text-muted hover:bg-brand-pastel/50 hover:text-brand-text transition-colors"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+          )}
 
-        {availableCategories.length > 0 && renderProgress()}
+          <h2 className="text-lg sm:text-xl font-bold text-brand-text text-center px-12">
+            Reservar Turno
+          </h2>
+          <p className="mt-1 text-center text-xs sm:text-sm text-brand-text-muted px-2">
+            {step === STEPS.PAYMENT
+              ? 'Realizá el pago de la seña para confirmar tu turno.'
+              : 'Podés agendar con hasta 2 horas de anticipación.'}
+          </p>
+        </div>
+
+        {/* Body - Scrollable */}
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+          {availableCategories.length > 0 && renderProgress()}
 
         {/* ── Step 0: Category */}
         {step === STEPS.CATEGORY && (
@@ -446,6 +460,7 @@ function UserBookingModal({ isOpen, onClose, defaultServiceId = null }) {
             </div>
           </form>
         )}
+        </div>
       </div>
     </div>
   )
