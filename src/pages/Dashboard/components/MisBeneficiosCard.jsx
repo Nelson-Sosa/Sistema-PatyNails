@@ -56,7 +56,7 @@ function MisBeneficiosCard({ totalVisits }) {
 
   return (
     <>
-      <div className="relative overflow-hidden rounded-2xl border border-white/[0.06] bg-gradient-to-b from-white/[0.03] to-white/[0.01] p-6 transition-all duration-300 hover:border-white/[0.1]">
+      <div className="relative overflow-hidden rounded-2xl border border-brand-pastel bg-brand-card shadow-sm p-6 transition-all duration-300 hover:border-brand-primary/50">
         {rewardReady && (
           <div className="pointer-events-none absolute -right-8 -top-8 h-28 w-28 rounded-full bg-emerald-500/8 blur-3xl" />
         )}
@@ -77,8 +77,8 @@ function MisBeneficiosCard({ totalVisits }) {
               />
             </span>
             <div>
-              <p className="text-sm font-medium text-white">Mis Beneficios</p>
-              <p className="text-xs text-slate-500">Cada visita te acerca a nuevas recompensas.</p>
+              <p className="text-sm font-medium text-brand-text">Mis Beneficios</p>
+              <p className="text-xs text-brand-text-muted">Cada visita te acerca a nuevas recompensas.</p>
             </div>
           </div>
 
@@ -89,19 +89,19 @@ function MisBeneficiosCard({ totalVisits }) {
               <p
                 className={cn(
                   'text-sm font-medium',
-                  msg.isReward ? 'text-emerald-400' : 'text-slate-200'
+                  msg.isReward ? 'text-emerald-500' : 'text-brand-text'
                 )}
               >
                 {msg.title}
               </p>
-              <p className="mt-0.5 text-xs text-slate-500">{msg.subtitle}</p>
+              <p className="mt-0.5 text-xs text-brand-text-muted">{msg.subtitle}</p>
             </div>
           </div>
 
           {/* Progress */}
           <div className="space-y-2.5">
             <ProgressBar value={displayProgress} max={REWARD_EVERY} />
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-brand-text-muted">
               {displayProgress} de {REWARD_EVERY} visitas
             </p>
           </div>
@@ -142,22 +142,22 @@ function MisBeneficiosCard({ totalVisits }) {
       {/* Reward modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={() => setShowModal(false)} />
-          <div className="relative w-full max-w-sm rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl max-w-[95vw] max-h-[90vh] overflow-y-auto">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowModal(false)} />
+          <div className="relative w-full max-w-sm rounded-2xl border border-brand-border bg-brand-card p-6 shadow-2xl max-w-[95vw] max-h-[90vh] overflow-y-auto">
             <button
               onClick={() => setShowModal(false)}
-              className="absolute right-4 top-4 rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-white z-50"
+              className="absolute right-4 top-4 rounded-lg p-1 text-brand-text-muted hover:bg-brand-pastel/30 hover:text-brand-text z-50"
             >
               <X className="h-5 w-5" />
             </button>
 
             <div className="flex flex-col items-center gap-4 text-center">
               <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500/20 to-emerald-400/10">
-                <Gift className="h-7 w-7 text-emerald-400" />
+                <Gift className="h-7 w-7 text-emerald-500" />
               </div>
               <div>
-                <h2 className="text-lg font-bold text-white">Recompensa disponible</h2>
-                <p className="mt-2 text-sm text-slate-400 leading-relaxed">
+                <h2 className="text-lg font-bold text-brand-text">Recompensa disponible</h2>
+                <p className="mt-2 text-sm text-brand-text-muted leading-relaxed">
                   Ya puedes reclamar tu 20% de descuento en tu próxima visita.
                 </p>
               </div>

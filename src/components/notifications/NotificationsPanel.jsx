@@ -34,18 +34,18 @@ function NotificationsPanel({ isOpen, onClose }) {
     <div
       className={cn(
         'w-[calc(100vw-2rem)] sm:w-[360px] origin-top-right animate-slide-down',
-        'rounded-2xl border border-white/[0.08] bg-slate-900/95',
-        'shadow-[0_8px_32px_rgba(0,0,0,0.4)] backdrop-blur-xl',
+        'rounded-2xl border border-brand-border bg-brand-card',
+        'shadow-[0_8px_32px_rgba(0,0,0,0.08)] backdrop-blur-xl',
         'flex flex-col overflow-hidden'
       )}
     >
       {/* ── Header ──────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between border-b border-white/[0.06] px-4 py-3">
+      <div className="flex items-center justify-between border-b border-brand-border px-4 py-3">
         <div className="flex items-center gap-2">
-          <Bell className="h-4 w-4 text-rose-400" />
-          <span className="text-sm font-semibold text-white">Notificaciones</span>
+          <Bell className="h-4 w-4 text-brand-primary" />
+          <span className="text-sm font-semibold text-brand-text">Notificaciones</span>
           {hasUnread && (
-            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 text-[10px] font-bold text-white">
+            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-primary px-1.5 text-[10px] font-bold text-white">
               {unread.length}
             </span>
           )}
@@ -54,7 +54,7 @@ function NotificationsPanel({ isOpen, onClose }) {
           <button
             onClick={() => markAllRead()}
             disabled={isMarkingAll}
-            className="flex items-center gap-1 text-xs text-rose-400/70 transition-colors hover:text-rose-300 disabled:opacity-50"
+            className="flex items-center gap-1 text-xs text-brand-primary/70 transition-colors hover:text-brand-primary-hover disabled:opacity-50"
           >
             <CheckCheck className="h-3.5 w-3.5" />
             Leer todas
@@ -66,7 +66,7 @@ function NotificationsPanel({ isOpen, onClose }) {
       <div className="max-h-[70vh] sm:max-h-[400px] overflow-y-auto">
         {isLoading ? (
           <div className="flex h-20 items-center justify-center">
-            <div className="h-5 w-5 animate-spin rounded-full border-2 border-rose-500 border-t-transparent" />
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-brand-primary border-t-transparent" />
           </div>
         ) : notifications?.length > 0 ? (
           <div className="py-1">
@@ -80,14 +80,14 @@ function NotificationsPanel({ isOpen, onClose }) {
                     if (isUnread) markRead(n.id)
                   }}
                   className={cn(
-                    'flex w-full gap-3 border-b border-white/[0.04] px-4 py-2.5 text-left transition-colors last:border-b-0 hover:bg-white/[0.03]',
-                    isUnread ? 'bg-white/[0.02]' : 'opacity-50'
+                    'flex w-full gap-3 border-b border-brand-border px-4 py-2.5 text-left transition-colors last:border-b-0 hover:bg-brand-pastel/30',
+                    isUnread ? 'bg-brand-pastel/10' : 'opacity-50'
                   )}
                 >
                   <div
                     className={cn(
                       'mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg',
-                      isUnread ? 'bg-rose-500/15 text-rose-400' : 'bg-white/[0.05] text-slate-500'
+                      isUnread ? 'bg-brand-pastel text-brand-primary' : 'bg-brand-pastel/30 text-brand-text-muted'
                     )}
                   >
                     <Icon className="h-3.5 w-3.5" />
@@ -97,17 +97,17 @@ function NotificationsPanel({ isOpen, onClose }) {
                       <span
                         className={cn(
                           'truncate text-sm font-medium',
-                          isUnread ? 'text-white' : 'text-slate-400'
+                          isUnread ? 'text-brand-text' : 'text-brand-text-muted'
                         )}
                       >
                         {n.title}
                       </span>
                       {isUnread && (
-                        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-rose-500" />
+                        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand-primary" />
                       )}
                     </div>
-                    <p className="mt-0.5 truncate text-xs text-slate-500">{n.message}</p>
-                    <p className="mt-0.5 text-[11px] text-slate-600">
+                    <p className="mt-0.5 truncate text-xs text-brand-text-muted">{n.message}</p>
+                    <p className="mt-0.5 text-[11px] text-brand-text-muted/70">
                       {getTimeAgo(n.createdAt)}
                     </p>
                   </div>
@@ -117,11 +117,11 @@ function NotificationsPanel({ isOpen, onClose }) {
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center gap-1.5 px-4 py-10">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/[0.05]">
-              <Inbox className="h-5 w-5 text-slate-500" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-pastel/30">
+              <Inbox className="h-5 w-5 text-brand-text-muted" />
             </div>
-            <p className="text-sm font-medium text-slate-400">No tienes notificaciones</p>
-            <p className="text-center text-xs text-slate-600">
+            <p className="text-sm font-medium text-brand-text-muted">No tienes notificaciones</p>
+            <p className="text-center text-xs text-brand-text-muted/70">
               Cuando ocurra alguna actividad, la verás aquí.
             </p>
           </div>
