@@ -110,7 +110,7 @@ export default function AppointmentDrawer({ appointment, isOpen, onClose, onEdit
               onChange={(e) => onStatusChange(e.target.value)}
               className="h-9 w-full rounded-lg border border-brand-border bg-brand-bg px-3 text-sm text-brand-text focus:border-brand-primary focus:ring-1 focus:ring-brand-primary"
             >
-              {Object.values(APPOINTMENT_STATUS).map((status) => (
+              {Object.keys(STATUS_CONFIG).map((status) => (
                 <option key={status} value={status}>
                   {STATUS_CONFIG[status]?.label || status}
                 </option>
