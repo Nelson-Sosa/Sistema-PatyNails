@@ -53,7 +53,7 @@ function ClientHistoryModal({ isOpen, onClose, client }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={onClose} />
 
-      <div className="relative max-h-[90vh] w-full max-w-2xl lg:max-w-4xl overflow-y-auto rounded-2xl border border-brand-pastel bg-brand-card p-4 sm:p-6 lg:p-8 shadow-2xl max-w-[95vw]">
+      <div className="relative w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl border border-brand-pastel bg-brand-card p-4 sm:p-6 lg:p-8 shadow-2xl">
         <button
           onClick={onClose}
           className="absolute right-4 top-4 rounded-lg p-1 text-brand-text-muted hover:bg-brand-pastel hover:text-brand-primary z-50"
