@@ -68,7 +68,13 @@ const NON_BLOCKING_STATUSES = new Set([
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
-// Removed helper functions that are now in scheduleService.js
+function getMonday(date) {
+  return startOfWeek(date, { weekStartsOn: 1 })
+}
+
+function getWeekDays(weekStart) {
+  return Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
+}
 
 function getRowHeight() {
   if (typeof window === 'undefined') return ROW_HEIGHT_BREAKPOINTS.base
