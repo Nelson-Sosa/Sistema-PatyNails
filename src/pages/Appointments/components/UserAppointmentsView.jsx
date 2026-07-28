@@ -94,6 +94,8 @@ export default function UserAppointmentsView() {
         return <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-500">Realizado</span>
       case APPOINTMENT_STATUS.CANCELLED:
         return <span className="rounded-full bg-rose-500/10 px-2 py-0.5 text-xs font-medium text-rose-500">Cancelado</span>
+      case APPOINTMENT_STATUS.NO_SHOW:
+        return <span className="rounded-full bg-orange-500/10 px-2 py-0.5 text-xs font-medium text-orange-500">No asistió</span>
       default:
         return <span className="rounded-full bg-slate-500/10 px-2 py-0.5 text-xs font-medium text-slate-500">{status}</span>
     }
