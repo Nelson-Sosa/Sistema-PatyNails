@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { usePageTitle } from '@/hooks/usePageTitle'
 import { useAuth } from '@/hooks/useAuth'
 import { usePendingAction } from '@/hooks/usePendingAction'
-import { useServices, useAllServices } from '@/hooks/useServices'
+import { useServices, useAllServices, useDeleteService } from '@/hooks/useServices'
 import { useCategories } from '@/hooks/useServiceCategories'
 import { ROUTES } from '@/routes/routes'
 import { USER_ROLES } from '@/constants/app'
@@ -14,6 +14,8 @@ import CategoryCard from './components/CategoryCard'
 import ServiceModal from './components/ServiceModal'
 import CategoryModal from './components/CategoryModal'
 import LocationSection from '@/components/common/LocationSection'
+import ConfirmDialog from '@/components/ui/ConfirmDialog'
+import toast from 'react-hot-toast'
 
 function ServicesPage() {
   usePageTitle('Servicios')
@@ -29,9 +31,11 @@ function ServicesPage() {
   const [preSelectedCategoryId, setPreSelectedCategoryId] = useState(null)
   const [categoryModalOpen, setCategoryModalOpen] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState(null)
+  const [serviceToDelete, setServiceToDelete] = useState(null)
 
   const { data: rawServices, isLoading } = isAdmin ? useAllServices() : useServices()
   const { data: categories } = useCategories()
+  const { mutateAsync: deleteService, isPending: isDeleting } = useDeleteService()
 
   const grouped = useMemo(() => {
     if (!rawServices) return { categories: [], uncategorized: [] }
@@ -100,6 +104,17 @@ function ServicesPage() {
     setCategoryModalOpen(false)
   }
 
+  const handleDeleteService = async () => {
+    if (!serviceToDelete) return
+    try {
+      await deleteService(serviceToDelete.id)
+      toast.success('Servicio eliminado')
+      setServiceToDelete(null)
+    } catch (error) {
+      toast.error('Ocurrió un error al eliminar')
+    }
+  }
+
   const hasAnyServices = rawServices?.length > 0
 
   return (
@@ -154,6 +169,7 @@ function ServicesPage() {
               onEditCategory={handleEditCategory}
               onAddService={handleAddServiceInCategory}
               onEditService={handleEditService}
+              onDeleteService={setServiceToDelete}
               onBook={handleBookService}
               defaultOpen
             />
@@ -168,6 +184,7 @@ function ServicesPage() {
               onEditCategory={() => {}}
               onAddService={handleAddServiceGeneric}
               onEditService={handleEditService}
+              onDeleteService={setServiceToDelete}
               onBook={handleBookService}
               defaultOpen={grouped.categories.length === 0}
             />
@@ -201,6 +218,17 @@ function ServicesPage() {
           category={selectedCategory}
         />
       )}
+
+      {/* ── Confirm Dialog ─────────────────────────────────────────────────── */}
+      <ConfirmDialog
+        isOpen={!!serviceToDelete}
+        onClose={() => setServiceToDelete(null)}
+        onConfirm={handleDeleteService}
+        title="Eliminar Servicio"
+        message={`¿Estás seguro que querés eliminar el servicio "${serviceToDelete?.name}"? Esta acción no se puede deshacer.`}
+        confirmLabel="Eliminar"
+        isLoading={isDeleting}
+      />
     </div>
   )
 }

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ChevronDown, Edit2, Plus, Clock, ArrowRight } from 'lucide-react'
+import { ChevronDown, Edit2, Plus, Clock, ArrowRight, Trash2 } from 'lucide-react'
 import {
   Hand, Footprints, Eye, EyeClosed, FaceMask, HairDryer,
   FlowerLotus, Handshake, SprayBottle, Palette, Sparkle,
@@ -46,7 +46,7 @@ function getCategoryIcon(name) {
   return Sparkle
 }
 
-function CategoryCard({ category, services, isAdmin, onEditCategory, onAddService, onEditService, onBook, defaultOpen }) {
+function CategoryCard({ category, services, isAdmin, onEditCategory, onAddService, onEditService, onDeleteService, onBook, defaultOpen }) {
   const [isOpen, setIsOpen] = useState(defaultOpen ?? true)
   const [hoveredService, setHoveredService] = useState(null)
 
@@ -207,8 +207,16 @@ function CategoryCard({ category, services, isAdmin, onEditCategory, onAddServic
                               <button
                                 onClick={(e) => { e.stopPropagation(); onEditService(svc) }}
                                 className="flex h-9 w-9 items-center justify-center rounded-xl text-brand-text-muted transition-all duration-200 hover:bg-brand-pastel hover:text-brand-primary"
+                                title="Editar servicio"
                               >
                                 <Edit2 className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); onDeleteService && onDeleteService(svc) }}
+                                className="flex h-9 w-9 items-center justify-center rounded-xl text-brand-text-muted transition-all duration-200 hover:bg-red-500/10 hover:text-red-500"
+                                title="Eliminar servicio"
+                              >
+                                <Trash2 className="h-4 w-4" />
                               </button>
                             </div>
                           ) : (
