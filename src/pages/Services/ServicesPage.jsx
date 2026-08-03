@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { Scissors, Plus, FolderKanban } from 'lucide-react'
+import { Scissors, Plus, FolderKanban, Search, X } from 'lucide-react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { usePageTitle } from '@/hooks/usePageTitle'
 import { useAuth } from '@/hooks/useAuth'
@@ -32,6 +32,7 @@ function ServicesPage() {
   const [categoryModalOpen, setCategoryModalOpen] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState(null)
   const [serviceToDelete, setServiceToDelete] = useState(null)
+  const [searchQuery, setSearchQuery] = useState('')
 
   const { data: rawServices, isLoading } = isAdmin ? useAllServices() : useServices()
   const { data: categories } = useCategories()
@@ -40,12 +41,33 @@ function ServicesPage() {
   const grouped = useMemo(() => {
     if (!rawServices) return { categories: [], uncategorized: [] }
 
+    const query = searchQuery.toLowerCase().trim()
+
+    // Create a map of categories for quick lookup
+    const categoryMap = (categories || []).reduce((acc, cat) => {
+      acc[cat.id] = cat
+      return acc
+    }, {})
+
+    // Filter services based on query
+    const filteredServices = rawServices.filter((svc) => {
+      if (!query) return true
+
+      const serviceNameMatch = svc.name?.toLowerCase().includes(query)
+      const serviceDescMatch = svc.description?.toLowerCase().includes(query)
+      
+      const cat = categoryMap[svc.categoryId]
+      const categoryMatch = cat?.name?.toLowerCase().includes(query)
+      
+      return serviceNameMatch || serviceDescMatch || categoryMatch
+    })
+
     const catMap = {}
     const uncategorized = []
 
-    rawServices.forEach((svc) => {
+    filteredServices.forEach((svc) => {
       const catId = svc.categoryId
-      if (catId) {
+      if (catId && categoryMap[catId]) {
         if (!catMap[catId]) catMap[catId] = []
         catMap[catId].push(svc)
       } else {
@@ -56,10 +78,10 @@ function ServicesPage() {
     const result = (categories || []).map((cat) => ({
       category: cat,
       services: catMap[cat.id] || [],
-    })).filter((g) => g.services.length > 0 || isAdmin)
+    })).filter((g) => g.services.length > 0 || (isAdmin && (!query || g.category.name.toLowerCase().includes(query))))
 
     return { categories: result, uncategorized }
-  }, [rawServices, categories, isAdmin])
+  }, [rawServices, categories, isAdmin, searchQuery])
 
   const handleBookService = (serviceId) => {
     if (!isAuthenticated) {
@@ -116,6 +138,7 @@ function ServicesPage() {
   }
 
   const hasAnyServices = rawServices?.length > 0
+  const hasFilteredServices = grouped.categories.length > 0 || grouped.uncategorized.length > 0
 
   return (
     <div className="space-y-6">
@@ -152,44 +175,77 @@ function ServicesPage() {
         </div>
       </div>
 
+      {/* ── Search Bar ──────────────────────────────────────────────────────── */}
+      {hasAnyServices && (
+        <div className="relative w-full max-w-md">
+          <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+            <Search className="h-5 w-5 text-brand-text-muted" />
+          </div>
+          <input
+            type="text"
+            className="w-full rounded-xl border border-brand-pastel bg-brand-bg py-2 pl-10 pr-10 text-sm text-brand-text placeholder-brand-text-muted transition-colors focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
+            placeholder="Buscar por nombre, descripción o categoría..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute inset-y-0 right-0 flex items-center pr-3 text-brand-text-muted transition-colors hover:text-brand-text"
+              aria-label="Limpiar búsqueda"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      )}
+
       {/* ── Catalog ─────────────────────────────────────────────────────────── */}
       {isLoading ? (
         <div className="flex h-40 items-center justify-center">
           <Spinner size="lg" />
         </div>
       ) : hasAnyServices ? (
-        <div className="flex flex-col gap-4">
-          {/* Grouped by category */}
-          {grouped.categories.map(({ category, services }) => (
-            <CategoryCard
-              key={category.id}
-              category={category}
-              services={services}
-              isAdmin={isAdmin}
-              onEditCategory={handleEditCategory}
-              onAddService={handleAddServiceInCategory}
-              onEditService={handleEditService}
-              onDeleteService={setServiceToDelete}
-              onBook={handleBookService}
-              defaultOpen
-            />
-          ))}
+        hasFilteredServices ? (
+          <div className="flex flex-col gap-4">
+            {/* Grouped by category */}
+            {grouped.categories.map(({ category, services }) => (
+              <CategoryCard
+                key={category.id}
+                category={category}
+                services={services}
+                isAdmin={isAdmin}
+                onEditCategory={handleEditCategory}
+                onAddService={handleAddServiceInCategory}
+                onEditService={handleEditService}
+                onDeleteService={setServiceToDelete}
+                onBook={handleBookService}
+                defaultOpen
+              />
+            ))}
 
-          {/* Uncategorized section */}
-          {grouped.uncategorized.length > 0 && (
-            <CategoryCard
-              category={{ name: 'Sin categoría', description: '' }}
-              services={grouped.uncategorized}
-              isAdmin={isAdmin}
-              onEditCategory={() => {}}
-              onAddService={handleAddServiceGeneric}
-              onEditService={handleEditService}
-              onDeleteService={setServiceToDelete}
-              onBook={handleBookService}
-              defaultOpen={grouped.categories.length === 0}
-            />
-          )}
-        </div>
+            {/* Uncategorized section */}
+            {grouped.uncategorized.length > 0 && (
+              <CategoryCard
+                category={{ name: 'Sin categoría', description: '' }}
+                services={grouped.uncategorized}
+                isAdmin={isAdmin}
+                onEditCategory={() => {}}
+                onAddService={handleAddServiceGeneric}
+                onEditService={handleEditService}
+                onDeleteService={setServiceToDelete}
+                onBook={handleBookService}
+                defaultOpen={grouped.categories.length === 0}
+              />
+            )}
+          </div>
+        ) : (
+          <div className="flex h-64 flex-col items-center justify-center rounded-xl border border-dashed border-brand-pastel bg-brand-pastel/10">
+            <Search className="mb-3 h-10 w-10 text-brand-text-muted opacity-50" />
+            <p className="text-lg font-medium text-brand-text-muted">No se encontraron servicios</p>
+            <p className="text-sm text-brand-text-muted mt-1">Intentá con otros términos de búsqueda.</p>
+          </div>
+        )
       ) : (
         <div className="flex h-64 flex-col items-center justify-center rounded-xl border border-dashed border-brand-pastel bg-brand-pastel/10">
           <Scissors className="mb-3 h-10 w-10 text-brand-text-muted" />
