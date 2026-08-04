@@ -165,19 +165,26 @@ export default function WeeklyAgendaView() {
     for (const seg of segments) {
       if (seg.type === 'open') {
         let alt = 0
-        for (let m = seg.startMin; m < seg.endMin; m += slotInterval) {
+        for (let m = seg.startMin; m <= seg.endMin; m += slotInterval) {
           rows.push({ kind: 'slot', startMin: m, alt: alt % 2 === 1 })
           alt++
         }
       } else {
-        rows.push({ kind: 'closed', startMin: seg.startMin, endMin: seg.endMin })
+        // El cierre se dibuja después de la casilla límite del bloque (fin del
+        // bloque) y antes del inicio del siguiente: [fin + intervalo, inicio).
+        const startMin = seg.startMin + slotInterval
+        if (startMin < seg.endMin) {
+          rows.push({ kind: 'closed', startMin, endMin: seg.endMin })
+        }
       }
     }
     return rows
   }, [segments, slotInterval])
 
+  // La grilla incluye la casilla límite de cierre (hora de fin de cada bloque),
+  // por lo que la altura total contempla ese intervalo final.
   const totalHeight = businessSpan
-    ? (businessSpan.endMin - businessSpan.startMin) * pxPerMinute
+    ? (businessSpan.endMin + slotInterval - businessSpan.startMin) * pxPerMinute
     : 0
 
   // Group appointments by day
