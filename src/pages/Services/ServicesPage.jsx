@@ -13,7 +13,6 @@ import Spinner from '@/components/ui/Spinner'
 import CategoryCard from './components/CategoryCard'
 import ServiceModal from './components/ServiceModal'
 import CategoryModal from './components/CategoryModal'
-import LocationSection from '@/components/common/LocationSection'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import toast from 'react-hot-toast'
 
@@ -247,9 +246,6 @@ function ServicesPage() {
           <p className="text-lg font-medium text-brand-text-muted">No hay servicios disponibles</p>
         </div>
       )}
-
-      {/* ── Location Section ────────────────────────────────────────────────── */}
-      <LocationSection />
 
       {/* ── Service Modal ─────────────────────────────────────────────────── */}
       {(serviceModalOpen || selectedService) && (
