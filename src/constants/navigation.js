@@ -2,13 +2,13 @@ import {
   LayoutDashboard,
   CalendarDays,
   Users,
-  Brush,
   Settings,
   UserCircle,
   Image as ImageIcon,
   GalleryHorizontal,
 } from 'lucide-react'
 import { InicioIcon } from '@/components/icons/InicioIcon'
+import { ServiciosIcon } from '@/components/icons/ServiciosIcon'
 import { ROUTES } from '@/routes/routes'
 
 /**
@@ -62,7 +62,7 @@ export const NAV_ITEMS = [
     id: 'services',
     label: 'Servicios',
     path: ROUTES.SERVICES,
-    icon: Brush,
+    icon: ServiciosIcon,
     description: 'Servicios y precios',
     roles: ['admin', 'user'],
   },
