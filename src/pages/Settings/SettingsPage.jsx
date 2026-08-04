@@ -7,7 +7,7 @@ function SettingsPage() {
   usePageTitle('Configuración')
 
   return (
-    <div className="flex flex-col gap-8 max-w-2xl">
+    <div className="flex flex-col gap-8 max-w-4xl">
       {/* Page header */}
       <div>
         <h1 className="text-2xl font-bold text-brand-text">Configuración</h1>
@@ -27,7 +27,7 @@ function SettingsPage() {
             <p className="text-xs text-brand-text-muted">Configurá los bloques horarios por día y el intervalo de la agenda</p>
           </div>
         </div>
-        <div className="rounded-2xl border border-brand-border bg-brand-card p-5">
+        <div className="rounded-2xl border border-brand-border bg-brand-card p-4 sm:p-5">
           <BusinessSettingsSection />
         </div>
       </section>
@@ -43,7 +43,7 @@ function SettingsPage() {
             <p className="text-xs text-brand-text-muted">Configurá el sistema de seña por transferencia bancaria</p>
           </div>
         </div>
-        <div className="rounded-2xl border border-brand-border bg-brand-card p-5">
+        <div className="rounded-2xl border border-brand-border bg-brand-card p-4 sm:p-5">
           <PaymentSettingsSection />
         </div>
       </section>

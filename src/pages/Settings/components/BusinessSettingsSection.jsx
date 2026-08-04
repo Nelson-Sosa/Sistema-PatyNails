@@ -28,7 +28,7 @@ const DAY_LABELS = {
 }
 
 const timeInputClass =
-  'h-9 w-full rounded-lg border border-brand-border bg-brand-bg px-2 text-sm text-brand-text focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary'
+  'h-8 sm:h-9 w-full rounded-lg border border-brand-border bg-brand-bg px-2 text-sm text-brand-text focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary'
 
 /**
  * Validate a single day schedule against business rules.
@@ -177,14 +177,21 @@ export default function BusinessSettingsSection() {
 
       {/* ── Horarios de atención por día ─────────────────────────────────── */}
       <div>
-        <h3 className="text-sm font-semibold text-brand-text mb-1">
-          Horarios de atención
-        </h3>
-        <p className="text-xs text-brand-text-muted mb-3">
-          Definí bloques horarios por cada día. Los días cerrados no permiten reservas.
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <div>
+            <h3 className="text-sm font-semibold text-brand-text">
+              Horarios de atención
+            </h3>
+            <p className="text-xs text-brand-text-muted mt-0.5">
+              Definí bloques horarios por cada día. Los días cerrados no permiten reservas.
+            </p>
+          </div>
+          <span className="rounded-full border border-brand-pastel bg-brand-pastel/30 px-2.5 py-1 text-[11px] font-medium text-brand-text-muted">
+            7 días
+          </span>
+        </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
           {DAY_KEYS.map((dayKey) => (
             <DayScheduleCard
               key={dayKey}
@@ -261,7 +268,7 @@ function DayScheduleCard({ dayKey, label, day, error, onChange }) {
   return (
     <div
       className={cn(
-        'rounded-xl border p-4 transition-colors',
+        'rounded-xl border p-3 sm:p-4 transition-colors',
         day.enabled
           ? 'border-brand-pastel bg-brand-card'
           : 'border-brand-border bg-brand-bg/50'
@@ -277,6 +284,11 @@ function DayScheduleCard({ dayKey, label, day, error, onChange }) {
             )}
           />
           <span className="font-medium text-brand-text">{label}</span>
+          {day.enabled && blocks.length > 0 && (
+            <span className="shrink-0 rounded-full bg-brand-pastel/40 px-1.5 py-0.5 text-[10px] font-medium text-brand-text-muted">
+              {blocks.length} {blocks.length === 1 ? 'bloque' : 'bloques'}
+            </span>
+          )}
           <span
             className={cn(
               'text-[11px] font-medium',
@@ -296,8 +308,8 @@ function DayScheduleCard({ dayKey, label, day, error, onChange }) {
           )}
         >
           {day.enabled
-            ? <ToggleRight className="h-7 w-7" />
-            : <ToggleLeft className="h-7 w-7" />}
+            ? <ToggleRight className="h-6 w-6 sm:h-7 sm:w-7" />
+            : <ToggleLeft className="h-6 w-6 sm:h-7 sm:w-7" />}
         </button>
       </div>
 
@@ -307,7 +319,7 @@ function DayScheduleCard({ dayKey, label, day, error, onChange }) {
           {blocks.map((block, idx) => (
             <div
               key={idx}
-              className="rounded-lg border border-brand-border bg-brand-bg/40 p-2.5"
+              className="rounded-lg border border-brand-border bg-brand-bg/40 p-2 sm:p-2.5"
             >
               <p className="mb-1.5 text-[11px] font-medium text-brand-text-muted">
                 Bloque {idx + 1}
@@ -324,7 +336,7 @@ function DayScheduleCard({ dayKey, label, day, error, onChange }) {
                     className={timeInputClass}
                   />
                 </div>
-                <span className="mt-6 text-brand-text-muted select-none">→</span>
+                <span className="mt-5 sm:mt-6 text-brand-text-muted select-none">→</span>
                 <div className="flex-1 space-y-1">
                   <label className="block text-[10px] text-brand-text-muted">
                     Fin
