@@ -5,10 +5,10 @@ import {
   Brush,
   Settings,
   UserCircle,
-  Sparkles,
   Image as ImageIcon,
   GalleryHorizontal,
 } from 'lucide-react'
+import { InicioIcon } from '@/components/icons/InicioIcon'
 import { ROUTES } from '@/routes/routes'
 
 /**
@@ -38,7 +38,7 @@ export const NAV_ITEMS = [
     id: 'user-dashboard',
     label: 'Inicio',
     path: ROUTES.USER_DASHBOARD,
-    icon: Sparkles,
+    icon: InicioIcon,
     description: 'Panel de fidelización',
     roles: ['user'],
   },
