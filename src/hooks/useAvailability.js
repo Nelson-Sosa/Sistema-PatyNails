@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { useAppointmentsByDateRange } from './useAppointments'
 import { APPOINTMENT_STATUS } from '@/constants/app'
 import { useBusinessSettings } from './useBusinessSettings'
-import { calculateAvailableSlots } from '@/services/scheduleService'
+import { calculateAvailableSlots, isDayEnabled } from '@/services/scheduleService'
 
 // Helper: Get Monday of a given date's week
 function getMonday(d) {
@@ -58,7 +58,9 @@ export function useAvailability(serviceDuration = 60) {
       date.setHours(0, 0, 0, 0)
 
       const isPastDay = date < today
-      const isWorkingDay = businessSettings.workingDays?.includes(date.getDay()) ?? [1, 2, 3, 4, 5, 6].includes(date.getDay())
+      const isWorkingDay = businessSettings
+        ? isDayEnabled(businessSettings, date)
+        : [1, 2, 3, 4, 5, 6].includes(date.getDay())
       const isToday = date.getTime() === today.getTime()
       
       let slots = []
@@ -73,7 +75,7 @@ export function useAvailability(serviceDuration = 60) {
                  aptDate.getDate() === date.getDate()
         })
 
-        slots = calculateAvailableSlots(dayAppointments, serviceDuration, businessSettings, isToday, now)
+        slots = calculateAvailableSlots(dayAppointments, serviceDuration, businessSettings, isToday, now, date)
       }
 
       days.push({

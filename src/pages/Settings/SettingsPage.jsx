@@ -23,8 +23,8 @@ function SettingsPage() {
             <Clock className="h-4 w-4 text-brand-primary" />
           </div>
           <div>
-            <h2 className="text-base font-semibold text-brand-text">Horarios del negocio</h2>
-            <p className="text-xs text-brand-text-muted">Configurá la apertura, cierre e intervalos de la agenda</p>
+            <h2 className="text-base font-semibold text-brand-text">Horarios de atención</h2>
+            <p className="text-xs text-brand-text-muted">Configurá los bloques horarios por día y el intervalo de la agenda</p>
           </div>
         </div>
         <div className="rounded-2xl border border-brand-border bg-brand-card p-5">

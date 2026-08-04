@@ -13,6 +13,7 @@ import { checkAppointmentConflict } from '@/services/appointments/appointmentsSe
 import { USER_ROLES } from '@/constants/app'
 import { validateAppointmentDateTime } from '@/utils/dateValidation'
 import { useBusinessSettings } from '@/hooks/useBusinessSettings'
+import { canStartServiceAt, getScheduleErrorMessage, getDayWorkingSpan, getWeekWorkingSpan } from '@/services/scheduleService'
 import { formatCurrency } from '@/utils/formatters'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
@@ -91,8 +92,11 @@ function NewAppointmentModal({ isOpen, onClose, initialDate, initialTime, appoin
       }
 
       if (businessSettings) {
-        if (data.time < businessSettings.openingTime || data.time > businessSettings.closingTime) {
-          toast.error(`El horario de atención es de ${businessSettings.openingTime} a ${businessSettings.closingTime}`)
+        const [year, month, day] = data.date.split('-').map(Number)
+        const slotDay = new Date(year, month - 1, day, 12, 0, 0)
+        const scheduleCheck = canStartServiceAt(businessSettings, slotDay, data.time, service.duration)
+        if (!scheduleCheck.valid) {
+          toast.error(getScheduleErrorMessage(scheduleCheck.reason))
           return
         }
       }
@@ -147,6 +151,21 @@ function NewAppointmentModal({ isOpen, onClose, initialDate, initialTime, appoin
   }
 
   if (!isOpen) return null
+
+  // Hour range for the time selector, derived from the selected day's blocks
+  const formDate = watch('date')
+  const dateForRange = formDate || format(initialDate, 'yyyy-MM-dd')
+  let timeStartHour = 7
+  let timeEndHour = 20
+  if (businessSettings && dateForRange) {
+    const [yr, mo, dy] = dateForRange.split('-').map(Number)
+    const rangeDay = new Date(yr, mo - 1, dy, 12, 0, 0)
+    const daySpan = getDayWorkingSpan(businessSettings, rangeDay) || getWeekWorkingSpan(businessSettings)
+    if (daySpan) {
+      timeStartHour = Math.floor(daySpan.startMin / 60)
+      timeEndHour = Math.floor((daySpan.endMin - 1) / 60)
+    }
+  }
 
   const today = new Date()
   const minDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
@@ -224,8 +243,8 @@ function NewAppointmentModal({ isOpen, onClose, initialDate, initialTime, appoin
             render={({ field }) => (
               <TimeSelect
                 label="Hora del turno"
-                startHour={businessSettings ? Number(businessSettings.openingTime.split(':')[0]) : 7}
-                endHour={businessSettings ? Number(businessSettings.closingTime.split(':')[0]) : 20}
+                startHour={timeStartHour}
+                endHour={timeEndHour}
                 stepMinutes={businessSettings?.slotInterval || 30}
                 error={errors.time?.message}
                 {...field}

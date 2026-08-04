@@ -14,6 +14,7 @@ import {
   checkAppointmentConflict,
 } from '@/services/appointments/appointmentsService'
 import { validateAppointmentDateTime } from '@/utils/dateValidation'
+import { canStartServiceAt, getScheduleErrorMessage } from '@/services/scheduleService'
 import { formatCurrency, formatPhoneStoragePY } from '@/utils/formatters'
 import { PAYMENT_PROVIDERS, USER_ROLES } from '@/constants/app'
 import { ROUTES } from '@/routes/routes'
@@ -143,8 +144,11 @@ function BookingPage() {
     }
 
     if (businessSettings) {
-      if (slotTime < businessSettings.openingTime || slotTime > businessSettings.closingTime) {
-        toast.error(`El horario de atención es de ${businessSettings.openingTime} a ${businessSettings.closingTime}`)
+      const [year, month, day] = slotDate.split('-').map(Number)
+      const slotDay = new Date(year, month - 1, day, 12, 0, 0)
+      const scheduleCheck = canStartServiceAt(businessSettings, slotDay, slotTime, selectedService.duration)
+      if (!scheduleCheck.valid) {
+        toast.error(getScheduleErrorMessage(scheduleCheck.reason))
         return
       }
     }

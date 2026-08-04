@@ -16,7 +16,7 @@ import { es } from 'date-fns/locale'
 import { useAppointmentsByDateRange, useUpdateAppointmentStatus } from '@/hooks/useAppointments'
 import { APPOINTMENT_STATUS, STATUS_CONFIG } from '@/constants/app'
 import { useBusinessSettings } from '@/hooks/useBusinessSettings'
-import { generateTimeSlots, isSlotOccupied, toMinutes } from '@/services/scheduleService'
+import { generateTimeSlots, isSlotOccupied, toMinutes, minutesToTime, getWeekWorkingSpan, getDayBlocks, getDaySchedule, isMinuteInBlocks } from '@/services/scheduleService'
 import { cn } from '@/utils/cn'
 import Button from '@/components/ui/Button'
 import Spinner from '@/components/ui/Spinner'
@@ -119,13 +119,21 @@ export default function WeeklyAgendaView() {
   const { settings: businessSettings, isLoading: isLoadingSettings } = useBusinessSettings()
   const isLoading = isLoadingAppointments || isLoadingSettings
 
-  const timeSlots = useMemo(() => {
-    if (!businessSettings) return []
-    return generateTimeSlots(businessSettings.openingTime, businessSettings.closingTime, businessSettings.slotInterval)
-  }, [businessSettings])
+  // Shared timeline across the week: from the earliest block start to the latest
+  // block end of all enabled days. Pauses between blocks are rendered as dimmed,
+  // non-clickable rows for each specific day.
+  const businessSpan = businessSettings ? getWeekWorkingSpan(businessSettings) : null
 
-  const businessStartMin = businessSettings ? toMinutes(businessSettings.openingTime) : 0
-  const businessEndMin = businessSettings ? toMinutes(businessSettings.closingTime) : 0
+  const timeSlots = useMemo(() => {
+    if (!businessSettings || !businessSpan) return []
+    return generateTimeSlots(
+      minutesToTime(businessSpan.startMin),
+      minutesToTime(businessSpan.endMin),
+      businessSettings.slotInterval || 30
+    )
+  }, [businessSettings, businessSpan])
+
+  const businessStartMin = businessSpan ? businessSpan.startMin : 0
   const slotInterval = businessSettings?.slotInterval || 30
   
   const totalHeight = timeSlots.length * rowHeight
@@ -146,10 +154,11 @@ export default function WeeklyAgendaView() {
     return map
   }, [appointments])
 
-  // Current time indicator position
+  // Current time indicator position (only shown when now is inside today's blocks)
   const currentTimeMinutes = now.getHours() * 60 + now.getMinutes()
+  const todaySchedule = businessSettings ? getDaySchedule(businessSettings, today) : null
   const isWithinBusinessHours =
-    currentTimeMinutes >= businessStartMin && currentTimeMinutes < businessEndMin
+    !!todaySchedule?.enabled && isMinuteInBlocks(currentTimeMinutes, todaySchedule.blocks)
   const currentTimeTop =
     ((currentTimeMinutes - businessStartMin) / slotInterval) * rowHeight
 
@@ -166,15 +175,22 @@ export default function WeeklyAgendaView() {
       const slotEnd = slot.startMin + slotInterval
       const found = dayAppts.find(apt => isSlotOccupied(apt, slot.startMin, slotEnd))
 
+      // Existing appointments can always be opened (never hide/edit data).
       if (found) {
         setSelectedAppointment(found)
-      } else {
-        setEditingAppointment(null)
-        setModalPrefill({ date: day, time: slot.start })
-        setIsModalOpen(true)
+        return
       }
+
+      // Creating new appointments is only allowed inside the day's blocks.
+      if (businessSettings && !isMinuteInBlocks(slot.startMin, getDayBlocks(businessSettings, day))) {
+        return
+      }
+
+      setEditingAppointment(null)
+      setModalPrefill({ date: day, time: slot.start })
+      setIsModalOpen(true)
     },
-    [appointmentsByDay]
+    [appointmentsByDay, businessSettings, slotInterval]
   )
 
   const handleAppointmentClick = useCallback((appointment) => {
@@ -200,7 +216,11 @@ export default function WeeklyAgendaView() {
 
   const handleNewAppointment = () => {
     setEditingAppointment(null)
-    setModalPrefill({ date: today, time: businessSettings?.openingTime || '07:00' })
+    const todayBlocks = businessSettings ? getDayBlocks(businessSettings, today) : []
+    const defaultTime = todayBlocks.length > 0
+      ? todayBlocks[0].start
+      : minutesToTime(businessStartMin)
+    setModalPrefill({ date: today, time: defaultTime })
     setIsModalOpen(true)
   }
 
@@ -334,6 +354,7 @@ export default function WeeklyAgendaView() {
                 const dayKey = format(day, 'yyyy-MM-dd')
                 const dayAppts = appointmentsByDay[dayKey] || []
                 const isToday = isSameDay(day, today)
+                const dayBlocks = businessSettings ? getDayBlocks(businessSettings, day) : []
 
                 return (
                   <div
@@ -341,19 +362,24 @@ export default function WeeklyAgendaView() {
                     className="flex-1 relative border-r border-brand-border last:border-r-0 min-w-[100px] lg:min-w-[130px]"
                     style={{ height: totalHeight }}
                   >
-                    {/* Background grid — each 15-min block is a click target */}
-                    {timeSlots.map((slot, si) => (
-                      <div
-                        key={slot.startMin}
-                        onClick={() => handleCellClick(day, slot)}
-                        className={cn(
-                          'cursor-pointer border-b border-brand-border transition-colors',
-                          'hover:bg-emerald-500/5',
-                          si % 2 === 1 && 'bg-brand-alt-row'
-                        )}
-                        style={{ height: rowHeight }}
-                      />
-                    ))}
+                    {/* Background grid — each interval block is a click target */}
+                    {timeSlots.map((slot, si) => {
+                      const inBlock = isMinuteInBlocks(slot.startMin, dayBlocks)
+                      return (
+                        <div
+                          key={slot.startMin}
+                          onClick={inBlock ? () => handleCellClick(day, slot) : undefined}
+                          className={cn(
+                            'border-b border-brand-border transition-colors',
+                            inBlock
+                              ? 'cursor-pointer hover:bg-emerald-500/5'
+                              : 'cursor-not-allowed bg-brand-bg/60',
+                            si % 2 === 1 && inBlock && 'bg-brand-alt-row'
+                          )}
+                          style={{ height: rowHeight }}
+                        />
+                      )
+                    })}
 
                     {/* Appointment blocks — absolutely positioned, compact UI */}
                     {dayAppts

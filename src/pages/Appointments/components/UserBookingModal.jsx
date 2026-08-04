@@ -13,6 +13,7 @@ import { checkAppointmentConflict } from '@/services/appointments/appointmentsSe
 import { USER_ROLES, PAYMENT_PROVIDERS } from '@/constants/app'
 import { validateAppointmentDateTime } from '@/utils/dateValidation'
 import { useBusinessSettings } from '@/hooks/useBusinessSettings'
+import { canStartServiceAt, getScheduleErrorMessage } from '@/services/scheduleService'
 import { formatCurrency } from '@/utils/formatters'
 import { cn } from '@/utils/cn'
 import Button from '@/components/ui/Button'
@@ -112,8 +113,11 @@ function UserBookingModal({ isOpen, onClose, defaultServiceId = null }) {
     }
 
     if (businessSettings) {
-      if (data.time < businessSettings.openingTime || data.time > businessSettings.closingTime) {
-        toast.error(`El horario de atención es de ${businessSettings.openingTime} a ${businessSettings.closingTime}`)
+      const [year, month, day] = data.date.split('-').map(Number)
+      const slotDay = new Date(year, month - 1, day, 12, 0, 0)
+      const scheduleCheck = canStartServiceAt(businessSettings, slotDay, data.time, selectedService.duration)
+      if (!scheduleCheck.valid) {
+        toast.error(getScheduleErrorMessage(scheduleCheck.reason))
         return
       }
     }
