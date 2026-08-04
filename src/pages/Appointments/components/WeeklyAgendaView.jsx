@@ -3,6 +3,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Plus,
+  Lock,
 } from 'lucide-react'
 import {
   format,
@@ -16,7 +17,7 @@ import { es } from 'date-fns/locale'
 import { useAppointmentsByDateRange, useUpdateAppointmentStatus } from '@/hooks/useAppointments'
 import { APPOINTMENT_STATUS, STATUS_CONFIG } from '@/constants/app'
 import { useBusinessSettings } from '@/hooks/useBusinessSettings'
-import { generateTimeSlots, isSlotOccupied, toMinutes, minutesToTime, getWeekWorkingSpan, getDayBlocks, getDaySchedule, isMinuteInBlocks } from '@/services/scheduleService'
+import { isSlotOccupied, toMinutes, minutesToTime, getWeekWorkingSpan, getWeeklySchedule, getDayBlocks, getDaySchedule, isMinuteInBlocks, WEEK_DAY_KEYS } from '@/services/scheduleService'
 import { cn } from '@/utils/cn'
 import Button from '@/components/ui/Button'
 import Spinner from '@/components/ui/Spinner'
@@ -84,6 +85,33 @@ function getRowHeight() {
   return ROW_HEIGHT_BREAKPOINTS.base
 }
 
+/**
+ * Build the vertical rows of a single day's grid from its configured blocks.
+ * Each block contributes its aligned slots; pauses between blocks are collapsed
+ * into a single "closed" row instead of generating empty slot rows.
+ * @param {Array<{start: string, end: string}>} dayBlocks - sorted day blocks
+ * @param {number} interval - slot interval in minutes
+ * @returns {Array<{kind: 'slot'|'closed', startMin: number, endMin?: number, alt?: boolean}>}
+ */
+function buildDayRows(dayBlocks, interval) {
+  const rows = []
+  let prevEnd = null
+  for (const block of dayBlocks) {
+    const s = toMinutes(block.start)
+    const e = toMinutes(block.end)
+    if (prevEnd !== null && s > prevEnd) {
+      rows.push({ kind: 'closed', startMin: prevEnd, endMin: s })
+    }
+    let alt = 0
+    for (let m = s; m < e; m += interval) {
+      rows.push({ kind: 'slot', startMin: m, alt: alt % 2 === 1 })
+      alt++
+    }
+    prevEnd = e
+  }
+  return rows
+}
+
 // ── Component ──────────────────────────────────────────────────────────────
 
 export default function WeeklyAgendaView() {
@@ -119,24 +147,63 @@ export default function WeeklyAgendaView() {
   const { settings: businessSettings, isLoading: isLoadingSettings } = useBusinessSettings()
   const isLoading = isLoadingAppointments || isLoadingSettings
 
-  // Shared timeline across the week: from the earliest block start to the latest
-  // block end of all enabled days. Pauses between blocks are rendered as dimmed,
-  // non-clickable rows for each specific day.
+  // Shared timeline built from the union of all enabled days' blocks. Pauses
+  // (gaps between blocks) are collapsed into a single "cerrado" segment instead
+  // of rendering empty slot rows. Each day column is then built from its own blocks.
   const businessSpan = businessSettings ? getWeekWorkingSpan(businessSettings) : null
-
-  const timeSlots = useMemo(() => {
-    if (!businessSettings || !businessSpan) return []
-    return generateTimeSlots(
-      minutesToTime(businessSpan.startMin),
-      minutesToTime(businessSpan.endMin),
-      businessSettings.slotInterval || 30
-    )
-  }, [businessSettings, businessSpan])
-
-  const businessStartMin = businessSpan ? businessSpan.startMin : 0
   const slotInterval = businessSettings?.slotInterval || 30
-  
-  const totalHeight = timeSlots.length * rowHeight
+  const weekStartMin = businessSpan ? businessSpan.startMin : 0
+  const pxPerMinute = slotInterval > 0 ? rowHeight / slotInterval : rowHeight
+
+  const segments = useMemo(() => {
+    if (!businessSettings) return []
+    const schedule = getWeeklySchedule(businessSettings)
+    const intervals = []
+    for (const key of WEEK_DAY_KEYS) {
+      const day = schedule[key]
+      if (!day?.enabled) continue
+      for (const block of day.blocks) {
+        intervals.push([toMinutes(block.start), toMinutes(block.end)])
+      }
+    }
+    intervals.sort((a, b) => a[0] - b[0] || a[1] - b[1])
+
+    const merged = []
+    for (const [s, e] of intervals) {
+      const last = merged[merged.length - 1]
+      if (last && s <= last[1]) last[1] = Math.max(last[1], e)
+      else merged.push([s, e])
+    }
+
+    const segs = []
+    let cursor = null
+    for (const [s, e] of merged) {
+      if (cursor !== null && s > cursor) {
+        segs.push({ type: 'closed', startMin: cursor, endMin: s })
+      }
+      segs.push({ type: 'open', startMin: s, endMin: e })
+      cursor = e
+    }
+    return segs
+  }, [businessSettings])
+
+  const gutterRows = useMemo(() => {
+    const rows = []
+    for (const seg of segments) {
+      if (seg.type === 'open') {
+        for (let m = seg.startMin; m < seg.endMin; m += slotInterval) {
+          rows.push({ kind: 'slot', startMin: m })
+        }
+      } else {
+        rows.push({ kind: 'closed', startMin: seg.startMin, endMin: seg.endMin })
+      }
+    }
+    return rows
+  }, [segments, slotInterval])
+
+  const totalHeight = businessSpan
+    ? (businessSpan.endMin - businessSpan.startMin) * pxPerMinute
+    : 0
 
   // Group appointments by day
   const appointmentsByDay = useMemo(() => {
@@ -160,7 +227,7 @@ export default function WeeklyAgendaView() {
   const isWithinBusinessHours =
     !!todaySchedule?.enabled && isMinuteInBlocks(currentTimeMinutes, todaySchedule.blocks)
   const currentTimeTop =
-    ((currentTimeMinutes - businessStartMin) / slotInterval) * rowHeight
+    (currentTimeMinutes - weekStartMin) * pxPerMinute
 
   // ── Handlers ────────────────────────────────────────────────────────────
 
@@ -219,7 +286,7 @@ export default function WeeklyAgendaView() {
     const todayBlocks = businessSettings ? getDayBlocks(businessSettings, today) : []
     const defaultTime = todayBlocks.length > 0
       ? todayBlocks[0].start
-      : minutesToTime(businessStartMin)
+      : minutesToTime(weekStartMin)
     setModalPrefill({ date: today, time: defaultTime })
     setIsModalOpen(true)
   }
@@ -323,30 +390,46 @@ export default function WeeklyAgendaView() {
             </div>
 
             {/* ── Scrollable Body ───────────────────────────────────────── */}
+            {businessSpan ? (
             <div className="flex relative">
-              {/* Time gutter (sticky left) — cada fila de 15 minutos muestra su hora exacta */}
-              <div className="sticky left-0 z-20 w-20 flex-shrink-0 bg-brand-card">
-                {timeSlots.map((slot) => (
-                  <div
-                    key={slot.startMin}
-                    className={cn(
-                      'border-r border-brand-border flex items-start justify-center pt-1',
-                      'border-b border-brand-border'
-                    )}
-                    style={{ height: rowHeight }}
-                  >
-                    <span
-                      className={cn(
-                        'leading-none',
-                        slot.startMin % 60 === 0
-                          ? 'text-[10px] lg:text-xs font-medium text-brand-text'
-                          : 'text-[9px] lg:text-[10px] text-brand-text-muted'
-                      )}
+              {/* Time gutter (sticky left) — filas construidas bloque por bloque;
+                  los cierres se colapsan en una única fila informativa */}
+              <div
+                className="sticky left-0 z-20 w-20 flex-shrink-0 bg-brand-card"
+                style={{ height: totalHeight }}
+              >
+                {gutterRows.map((row, ri) => {
+                  const top = (row.startMin - weekStartMin) * pxPerMinute
+                  if (row.kind === 'slot') {
+                    return (
+                      <div
+                        key={ri}
+                        className="absolute left-0 right-0 border-r border-b border-brand-border flex items-start justify-center pt-1"
+                        style={{ top, height: rowHeight }}
+                      >
+                        <span
+                          className={cn(
+                            'leading-none',
+                            row.startMin % 60 === 0
+                              ? 'text-[10px] lg:text-xs font-medium text-brand-text'
+                              : 'text-[9px] lg:text-[10px] text-brand-text-muted'
+                          )}
+                        >
+                          {minutesToTime(row.startMin)}
+                        </span>
+                      </div>
+                    )
+                  }
+                  return (
+                    <div
+                      key={ri}
+                      className="absolute left-0 right-0 border-r border-b border-brand-border bg-brand-bg/70 flex items-center justify-center"
+                      style={{ top, height: (row.endMin - row.startMin) * pxPerMinute }}
                     >
-                      {slot.start}
-                    </span>
-                  </div>
-                ))}
+                      <Lock className="h-2.5 w-2.5 shrink-0 text-brand-text-muted/60" />
+                    </div>
+                  )
+                })}
               </div>
 
               {/* Day columns */}
@@ -355,6 +438,7 @@ export default function WeeklyAgendaView() {
                 const dayAppts = appointmentsByDay[dayKey] || []
                 const isToday = isSameDay(day, today)
                 const dayBlocks = businessSettings ? getDayBlocks(businessSettings, day) : []
+                const dayRows = buildDayRows(dayBlocks, slotInterval)
 
                 return (
                   <div
@@ -362,37 +446,59 @@ export default function WeeklyAgendaView() {
                     className="flex-1 relative border-r border-brand-border last:border-r-0 min-w-[100px] lg:min-w-[130px]"
                     style={{ height: totalHeight }}
                   >
-                    {/* Background grid — each interval block is a click target */}
-                    {timeSlots.map((slot, si) => {
-                      const inBlock = isMinuteInBlocks(slot.startMin, dayBlocks)
-                      return (
-                        <div
-                          key={slot.startMin}
-                          onClick={inBlock ? () => handleCellClick(day, slot) : undefined}
-                          className={cn(
-                            'border-b border-brand-border transition-colors',
-                            inBlock
-                              ? 'cursor-pointer hover:bg-emerald-500/5'
-                              : 'cursor-not-allowed bg-brand-bg/60',
-                            si % 2 === 1 && inBlock && 'bg-brand-alt-row'
-                          )}
-                          style={{ height: rowHeight }}
-                        />
-                      )
-                    })}
+                    {/* Grilla del día — construida bloque por bloque. Los cierres
+                        entre bloques se resumen en una única fila informativa. */}
+                    {dayRows.length === 0 ? (
+                      <div className="absolute inset-0 flex items-center justify-center bg-brand-bg/40">
+                        <span className="text-[10px] lg:text-xs font-medium text-brand-text-muted">
+                          Cerrado
+                        </span>
+                      </div>
+                    ) : (
+                      dayRows.map((row, ri) => {
+                        const top = (row.startMin - weekStartMin) * pxPerMinute
+                        if (row.kind === 'slot') {
+                          return (
+                            <div
+                              key={ri}
+                              onClick={() => handleCellClick(day, { start: minutesToTime(row.startMin), startMin: row.startMin })}
+                              className={cn(
+                                'absolute left-0 right-0 border-b border-brand-border transition-colors',
+                                'cursor-pointer hover:bg-emerald-500/5',
+                                row.alt && 'bg-brand-alt-row'
+                              )}
+                              style={{ top, height: rowHeight }}
+                            />
+                          )
+                        }
+                        const closedHeight = (row.endMin - row.startMin) * pxPerMinute
+                        return (
+                          <div
+                            key={ri}
+                            className="absolute left-0 right-0 flex items-center justify-center gap-1.5 border-y border-brand-border bg-brand-bg/70"
+                            style={{ top, height: closedHeight }}
+                          >
+                            <Lock className="h-3 w-3 shrink-0 text-brand-text-muted/80" />
+                            <span className="truncate text-[9px] lg:text-[10px] font-medium text-brand-text-muted">
+                              Local cerrado · {minutesToTime(row.startMin)} a {minutesToTime(row.endMin)}
+                            </span>
+                          </div>
+                        )
+                      })
+                    )}
 
                     {/* Appointment blocks — absolutely positioned, compact UI */}
                     {dayAppts
                       .filter(apt => {
                         if (NON_BLOCKING_STATUSES.has(apt.status)) return false
                         const startMin = toMinutes(apt.time)
-                        return startMin >= businessStartMin
+                        return startMin >= weekStartMin
                       })
                       .map((apt) => {
                         const aptStartMin = toMinutes(apt.time)
                         const safeDuration = Math.min(Number(apt.duration) || 60, 720)
                         const blocks = Math.ceil(safeDuration / slotInterval)
-                        const top = ((aptStartMin - businessStartMin) / slotInterval) * rowHeight
+                        const top = (aptStartMin - weekStartMin) * pxPerMinute
                         const height = Math.min(blocks * rowHeight, totalHeight - top)
                         const visible = height >= rowHeight * 0.5
                         const showContent = blocks >= 2
@@ -478,6 +584,13 @@ export default function WeeklyAgendaView() {
                 )
               })}
             </div>
+            ) : (
+              <div className="flex h-40 items-center justify-center">
+                <p className="text-sm text-brand-text-muted">
+                  No hay horarios de atención configurados para esta semana.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       )}
