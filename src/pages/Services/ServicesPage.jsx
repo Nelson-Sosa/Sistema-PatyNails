@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { Scissors, Plus, FolderKanban, Search, X } from 'lucide-react'
+import { NailPolishIcon } from '@/components/icons/NailPolishIcon'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { usePageTitle } from '@/hooks/usePageTitle'
 import { useAuth } from '@/hooks/useAuth'
@@ -146,7 +147,7 @@ function ServicesPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-rose-500/20 text-rose-500">
-            <Scissors className="h-5 w-5" />
+            <NailPolishIcon className="h-6 w-6" />
           </div>
           <div>
             <h1 className="text-2xl font-bold text-brand-text">Catálogo de Servicios</h1>
