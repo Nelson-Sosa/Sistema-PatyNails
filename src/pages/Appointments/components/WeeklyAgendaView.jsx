@@ -469,7 +469,6 @@ export default function WeeklyAgendaView() {
                         const top = (aptStartMin - weekStartMin) * pxPerMinute
                         const height = Math.min(blocks * rowHeight, totalHeight - top)
                         const visible = height >= rowHeight * 0.5
-                        const showContent = blocks >= 2
 
                         const endMin = aptStartMin + safeDuration
                         const endTimeStr = `${String(Math.floor(endMin / 60)).padStart(2, '0')}:${String(endMin % 60).padStart(2, '0')}`
@@ -495,8 +494,7 @@ export default function WeeklyAgendaView() {
                           >
                             <div className={cn('absolute inset-0', STATUS_BG_TINTS[apt.status])} />
 
-                            {showContent && (
-                              <div className="relative z-10 flex flex-col h-full px-1 lg:px-1.5 py-0.5 lg:py-1 min-h-0">
+                            <div className="relative z-10 flex flex-col h-full px-1 lg:px-1.5 py-0.5 lg:py-1 min-h-0">
                                 <span className="truncate text-[10px] lg:text-xs font-semibold text-white leading-tight">
                                   {apt.clientName}
                                   {apt.isGuest && (
@@ -506,7 +504,7 @@ export default function WeeklyAgendaView() {
                                   )}
                                 </span>
 
-                                {apt.clientName && apt.clientPhone && blocks >= 3 && (
+                                {apt.clientPhone && (
                                   <span className="truncate mt-px text-[8px] lg:text-[9px] text-slate-400 leading-none">
                                     {apt.clientPhone}
                                   </span>
@@ -531,7 +529,6 @@ export default function WeeklyAgendaView() {
                                   {STATUS_CONFIG[apt.status]?.label || ''}
                                 </span>
                               </div>
-                            )}
                           </div>
                         )
                       })}
