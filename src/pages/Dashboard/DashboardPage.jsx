@@ -60,7 +60,7 @@ function DashboardPage() {
       </div>
 
       {/* ── Metric Cards ───────────────────────────────────────────────────── */}
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         {[
           { icon: CalendarDays, value: stats?.todayAppointmentsCount ?? 0, label: 'Turnos hoy', color: 'text-rose-400', bg: 'bg-rose-500/10' },
           { icon: Users, value: stats?.totalClients ?? 0, label: 'Clientes totales', color: 'text-sky-400', bg: 'bg-sky-500/10' },
@@ -69,13 +69,13 @@ function DashboardPage() {
         ].map(({ icon: Icon, value, label, color, bg }) => (
           <div
             key={label}
-            className="group rounded-2xl border border-brand-pastel bg-brand-card p-5 shadow-sm shadow-brand-text/5 transition-all duration-200 hover:border-brand-primary/50 hover:shadow-brand-text/10 hover:-translate-y-0.5"
+            className="group flex flex-col rounded-2xl border border-brand-pastel bg-brand-card p-4 sm:p-5 shadow-sm shadow-brand-text/5 transition-all duration-200 hover:border-brand-primary/50 hover:shadow-brand-text/10 hover:-translate-y-0.5"
           >
-            <div className={`mb-4 flex h-10 w-10 items-center justify-center rounded-full ${bg}`}>
-              <Icon className={`h-5 w-5 ${color}`} />
+            <div className={`mb-3 flex h-9 w-9 items-center justify-center rounded-full sm:h-10 sm:w-10 ${bg}`}>
+              <Icon className={`h-4 w-4 sm:h-5 sm:w-5 ${color}`} />
             </div>
-            <p className="text-xl sm:text-2xl xl:text-3xl font-bold tracking-tight text-brand-text truncate">{value}</p>
-            <p className="mt-1 text-xs text-brand-text-muted">{label}</p>
+            <p className="truncate text-lg font-bold tracking-tight text-brand-text sm:text-2xl xl:text-3xl">{value}</p>
+            <p className="mt-1 truncate text-[11px] text-brand-text-muted sm:text-xs">{label}</p>
           </div>
         ))}
       </div>
@@ -107,7 +107,7 @@ function DashboardPage() {
                   return (
                     <div
                       key={app.id}
-                      className="group flex items-center gap-4 rounded-xl border border-transparent bg-transparent p-4 transition-all duration-200 hover:bg-brand-pastel/30 hover:-translate-y-0.5"
+                      className="group flex items-center gap-3 rounded-xl border border-transparent bg-transparent p-3 transition-all duration-200 hover:bg-brand-pastel/30 hover:-translate-y-0.5 sm:gap-4 sm:p-4"
                     >
                       {/* Time accent */}
                       <div className="flex flex-col items-center gap-1">
@@ -132,7 +132,7 @@ function DashboardPage() {
                       </div>
 
                       {/* Status badge */}
-                      <Badge variant={cfg.variant} size="sm">{cfg.label}</Badge>
+                      <Badge variant={cfg.variant} size="sm" className="shrink-0">{cfg.label}</Badge>
                     </div>
                   )
                 })
@@ -165,9 +165,9 @@ function DashboardPage() {
                     </div>
                   </div>
                   <div className="rounded-xl border border-brand-pastel bg-brand-pastel/10 px-4 py-3">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-brand-text-muted">Servicio</span>
-                      <span className="font-medium text-brand-text">{stats.nextAppointment.serviceName}</span>
+                    <div className="flex items-center justify-between gap-3 text-sm">
+                      <span className="shrink-0 text-brand-text-muted">Servicio</span>
+                      <span className="min-w-0 truncate text-right font-medium text-brand-text">{stats.nextAppointment.serviceName}</span>
                     </div>
                   </div>
                   <Link
