@@ -5,9 +5,10 @@ import {
   FaceMask, HairDryer, FlowerLotus, Handshake, SprayBottle, Palette,
   Sparkle,
 } from '@phosphor-icons/react'
-import {
-  ManicureIcon, PedicureIcon, EyebrowIcon, LashIcon, PolishIcon,
-} from '@/components/icons/CategoryIcons'
+import { ManicureIcon } from '@/components/icons/ManicureIcon'
+import { PedicureIcon } from '@/components/icons/PedicureIcon'
+import { EyebrowIcon } from '@/components/icons/EyebrowIcon'
+import { LashIcon, PolishIcon } from '@/components/icons/CategoryIcons'
 import { formatCurrency } from '@/utils/formatters'
 import Badge from '@/components/ui/Badge'
 
