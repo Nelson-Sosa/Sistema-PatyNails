@@ -7,7 +7,7 @@ function SettingsPage() {
   usePageTitle('Configuración')
 
   return (
-    <div className="flex flex-col gap-8 max-w-4xl">
+    <div className="flex flex-col gap-8 max-w-4xl 2xl:max-w-6xl">
       {/* Page header */}
       <div>
         <h1 className="text-2xl font-bold text-brand-text">Configuración</h1>

@@ -28,7 +28,10 @@ const DAY_LABELS = {
 }
 
 const timeInputClass =
-  'h-8 sm:h-9 w-full rounded-lg border border-brand-border bg-brand-bg px-2 text-sm text-brand-text focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary'
+  'h-8 sm:h-9 w-full min-w-0 flex-1 rounded-lg border border-brand-border bg-brand-bg px-2 text-sm text-brand-text focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary lg:min-w-[120px]'
+
+const timeRowClass =
+  'flex items-center gap-3 sm:gap-4 2xl:gap-5'
 
 /**
  * Validate a single day schedule against business rules.
@@ -191,7 +194,7 @@ export default function BusinessSettingsSection() {
           </span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-3 sm:gap-4">
           {DAY_KEYS.map((dayKey) => (
             <DayScheduleCard
               key={dayKey}
@@ -324,30 +327,34 @@ function DayScheduleCard({ dayKey, label, day, error, onChange }) {
               <p className="mb-1.5 text-[11px] font-medium text-brand-text-muted">
                 Bloque {idx + 1}
               </p>
-              <div className="flex items-start gap-2">
-                <div className="flex-1 space-y-1">
-                  <label className="block text-[10px] text-brand-text-muted">
-                    Inicio
-                  </label>
-                  <input
-                    type="time"
-                    value={block.start}
-                    onChange={(e) => updateBlock(idx, 'start', e.target.value)}
-                    className={timeInputClass}
-                  />
-                </div>
-                <span className="mt-5 sm:mt-6 text-brand-text-muted select-none">→</span>
-                <div className="flex-1 space-y-1">
-                  <label className="block text-[10px] text-brand-text-muted">
-                    Fin
-                  </label>
-                  <input
-                    type="time"
-                    value={block.end}
-                    onChange={(e) => updateBlock(idx, 'end', e.target.value)}
-                    className={timeInputClass}
-                  />
-                </div>
+              {/* Labels row — alineados sobre sus inputs */}
+              <div className={timeRowClass}>
+                <label className="block min-w-0 flex-1 text-[10px] font-medium text-brand-text-muted">
+                  Inicio
+                </label>
+                <span className="invisible w-4 shrink-0 select-none text-center text-sm font-medium text-brand-text-muted" aria-hidden="true">→</span>
+                <label className="block min-w-0 flex-1 text-[10px] font-medium text-brand-text-muted">
+                  Fin
+                </label>
+              </div>
+
+              {/* Inputs row — separación uniforme, inputs flexibles */}
+              <div className={`mt-1 ${timeRowClass}`}>
+                <input
+                  type="time"
+                  value={block.start}
+                  onChange={(e) => updateBlock(idx, 'start', e.target.value)}
+                  className={timeInputClass}
+                  aria-label="Hora de inicio"
+                />
+                <span className="w-4 shrink-0 select-none text-center text-sm font-medium text-brand-text-muted" aria-hidden="true">→</span>
+                <input
+                  type="time"
+                  value={block.end}
+                  onChange={(e) => updateBlock(idx, 'end', e.target.value)}
+                  className={timeInputClass}
+                  aria-label="Hora de fin"
+                />
               </div>
               <div className="mt-2 flex justify-end">
                 <button
