@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { ChevronLeft, ChevronRight, Sparkles } from 'lucide-react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { NAV_ITEMS } from '@/constants/navigation'
 import { APP_NAME } from '@/constants/app'
@@ -57,9 +57,15 @@ function Sidebar({ isCollapsed, onToggleCollapse, isMobileOpen, onMobileClose })
             isCollapsed ? 'justify-center px-2' : 'gap-3 px-4'
           )}
         >
-          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-brand-primary shadow-sm shadow-brand-primary/20">
-            <Sparkles className="h-4 w-4 text-white" />
-          </div>
+          <img
+            src="/PatyNails.png"
+            alt={`${APP_NAME} logo`}
+            draggable={false}
+            className={cn(
+              'h-9 w-9 flex-shrink-0 rounded-full object-cover shadow-sm shadow-brand-primary/20 ring-1 ring-brand-pastel',
+              isCollapsed && 'h-8 w-8'
+            )}
+          />
           {!isCollapsed && (
             <span className="text-base font-semibold tracking-tight text-brand-text">
               {APP_NAME}
