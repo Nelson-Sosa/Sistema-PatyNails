@@ -1,14 +1,15 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  getServices,
-  getAllServices,
-  getServiceById,
-  getServicesByCategory,
+  subscribeServices,
+  subscribeAllServices,
+  subscribeService,
+  subscribeServicesByCategory,
   createService,
   updateService,
   toggleServiceActive,
   deleteService,
 } from '@/services/services/servicesService'
+import { createRealtimeQuery } from '@/lib/firestoreRealtime'
 
 const QUERY_KEY = 'services'
 
@@ -18,8 +19,8 @@ const QUERY_KEY = 'services'
 export function useServices() {
   return useQuery({
     queryKey: [QUERY_KEY, 'active'],
-    queryFn: getServices,
-    staleTime: 1000 * 60 * 30, // 30 minutes (catalog doesn't change often)
+    queryFn: createRealtimeQuery(subscribeServices),
+    refetchOnMount: 'always',
   })
 }
 
@@ -29,7 +30,8 @@ export function useServices() {
 export function useAllServices() {
   return useQuery({
     queryKey: [QUERY_KEY, 'all'],
-    queryFn: getAllServices,
+    queryFn: createRealtimeQuery(subscribeAllServices),
+    refetchOnMount: 'always',
   })
 }
 
@@ -40,8 +42,9 @@ export function useAllServices() {
 export function useService(serviceId) {
   return useQuery({
     queryKey: [QUERY_KEY, serviceId],
-    queryFn: () => getServiceById(serviceId),
+    queryFn: createRealtimeQuery((onNext, onError) => subscribeService(serviceId, onNext, onError)),
     enabled: !!serviceId,
+    refetchOnMount: 'always',
   })
 }
 
@@ -104,8 +107,8 @@ export function useDeleteService() {
 export function useServicesByCategory(categoryId) {
   return useQuery({
     queryKey: [QUERY_KEY, 'byCategory', categoryId],
-    queryFn: () => getServicesByCategory(categoryId),
+    queryFn: createRealtimeQuery((onNext, onError) => subscribeServicesByCategory(categoryId, onNext, onError)),
     enabled: !!categoryId,
-    staleTime: 1000 * 60 * 30,
+    refetchOnMount: 'always',
   })
 }

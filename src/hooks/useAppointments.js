@@ -1,17 +1,18 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  getAppointmentsByDate,
-  getAppointmentsByDateRange,
+  subscribeAppointmentsByDate,
+  subscribeAppointmentsByDateRange,
+  subscribeAppointmentsByClient,
   createAppointment,
   updateAppointmentStatus,
   cancelAppointment,
-  getAppointmentsByClient,
   updateAppointmentDetails,
   submitPaymentProof,
   replacePaymentProof,
   approvePayment,
   rejectPayment,
 } from '@/services/appointments/appointmentsService'
+import { createRealtimeQuery } from '@/lib/firestoreRealtime'
 
 const QUERY_KEY = 'appointments'
 
@@ -22,9 +23,9 @@ const QUERY_KEY = 'appointments'
 export function useAppointmentsByDate(date) {
   return useQuery({
     queryKey: [QUERY_KEY, 'byDate', date?.toDateString()],
-    queryFn: () => getAppointmentsByDate(date),
+    queryFn: createRealtimeQuery((onNext, onError) => subscribeAppointmentsByDate(date, onNext, onError)),
     enabled: !!date,
-    staleTime: 1000 * 60 * 2, // 2 minutes
+    refetchOnMount: 'always',
   })
 }
 
@@ -43,9 +44,9 @@ export function useAppointmentsToday() {
 export function useAppointmentsByDateRange(start, end) {
   return useQuery({
     queryKey: [QUERY_KEY, 'byDateRange', start?.toDateString(), end?.toDateString()],
-    queryFn: () => getAppointmentsByDateRange(start, end),
+    queryFn: createRealtimeQuery((onNext, onError) => subscribeAppointmentsByDateRange(start, end, onNext, onError)),
     enabled: !!start && !!end,
-    staleTime: 1000 * 60 * 2,
+    refetchOnMount: 'always',
   })
 }
 
@@ -56,9 +57,9 @@ export function useAppointmentsByDateRange(start, end) {
 export function useAppointmentsByClient(clientId) {
   return useQuery({
     queryKey: [QUERY_KEY, 'byClient', clientId],
-    queryFn: () => getAppointmentsByClient(clientId),
+    queryFn: createRealtimeQuery((onNext, onError) => subscribeAppointmentsByClient(clientId, onNext, onError)),
     enabled: !!clientId,
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    refetchOnMount: 'always',
   })
 }
 

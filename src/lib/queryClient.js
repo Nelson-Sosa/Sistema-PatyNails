@@ -1,5 +1,6 @@
 import { QueryClient, MutationCache } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
+import { attachRealtimeCleanup } from '@/lib/firestoreRealtime'
 
 /**
  * Global TanStack Query client configuration.
@@ -9,6 +10,9 @@ import toast from 'react-hot-toast'
  * - gcTime: 10 minutes — unused cache entries are removed after 10 min
  * - retry: 2 — failed queries retry 2 times before triggering error state
  * - refetchOnWindowFocus: false — prevents unexpected refetches on tab focus
+ *
+ * Realtime Firestore queries (see src/lib/firestoreRealtime.js) are wired to
+ * close their onSnapshot listeners when the last observer unmounts.
  *
  * Global error handler: shows a toast notification for all query errors
  * that haven't been handled locally (using meta.suppressToast).
@@ -30,3 +34,6 @@ export const queryClient = new QueryClient({
     },
   },
 })
+
+// Close Firestore listeners when the last observer of a realtime query unmounts.
+attachRealtimeCleanup(queryClient)

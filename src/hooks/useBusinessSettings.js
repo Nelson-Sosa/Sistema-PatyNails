@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getBusinessSettings, updateBusinessSettings } from '@/services/settings/settingsService'
+import { subscribeBusinessSettings, updateBusinessSettings } from '@/services/settings/settingsService'
+import { createRealtimeQuery } from '@/lib/firestoreRealtime'
 
 const SETTINGS_QUERY_KEY = ['businessSettings']
 
@@ -11,8 +12,8 @@ export function useBusinessSettings() {
 
   const query = useQuery({
     queryKey: SETTINGS_QUERY_KEY,
-    queryFn: getBusinessSettings,
-    staleTime: 1000 * 60 * 60, // 1 hour (rarely changes)
+    queryFn: createRealtimeQuery(subscribeBusinessSettings),
+    refetchOnMount: 'always',
   })
 
   const mutation = useMutation({

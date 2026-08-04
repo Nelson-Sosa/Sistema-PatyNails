@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getPaymentSettings, updatePaymentSettings } from '@/services/settings/settingsService'
+import { subscribePaymentSettings, updatePaymentSettings } from '@/services/settings/settingsService'
+import { createRealtimeQuery } from '@/lib/firestoreRealtime'
 
 const QUERY_KEY = ['settings', 'payments']
 
@@ -10,8 +11,8 @@ const QUERY_KEY = ['settings', 'payments']
 export function usePaymentSettings() {
   return useQuery({
     queryKey: QUERY_KEY,
-    queryFn: getPaymentSettings,
-    staleTime: 1000 * 60 * 5, // 5 minutes — settings change infrequently
+    queryFn: createRealtimeQuery(subscribePaymentSettings),
+    refetchOnMount: 'always',
   })
 }
 

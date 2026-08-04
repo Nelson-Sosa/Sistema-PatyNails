@@ -24,12 +24,101 @@ import {
   query,
   where,
   orderBy,
+  onSnapshot,
   serverTimestamp,
 } from 'firebase/firestore'
 import { db } from '@/firebase/config'
 import { COLLECTIONS } from '@/constants/app'
 
 const worksRef = () => collection(db, COLLECTIONS.WORKS)
+
+/**
+ * Sort works newest-first by createdAt.
+ * @param {Array} docs
+ */
+function sortWorksNewestFirst(docs) {
+  return docs.sort((a, b) => {
+    const tA = a.createdAt?.seconds ?? 0
+    const tB = b.createdAt?.seconds ?? 0
+    return tB - tA
+  })
+}
+
+/**
+ * Get ALL works (admin view). Ordered by creation date descending.
+ * @returns {Promise<Array>}
+ */
+export async function getAllWorks() {
+  // Sort locally to avoid requiring a composite Firestore index
+  const snap = await getDocs(worksRef())
+  const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+  return sortWorksNewestFirst(docs)
+}
+
+/**
+ * Subscribe to ALL works (admin view). Ordered by creation date descending.
+ * @param {(data: Array) => void} onNext
+ * @param {(error: Error) => void} [onError]
+ * @returns {() => void} unsubscribe
+ */
+export function subscribeAllWorks(onNext, onError) {
+  return onSnapshot(worksRef(), (snap) => {
+    const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+    onNext(sortWorksNewestFirst(docs))
+  }, onError)
+}
+
+/**
+ * Get only published works for the public gallery.
+ * @returns {Promise<Array>}
+ */
+export async function getPublishedWorks() {
+  const q = query(worksRef(), where('published', '==', true))
+  const snap = await getDocs(q)
+  const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+  return sortWorksNewestFirst(docs)
+}
+
+/**
+ * Subscribe to only published works for the public gallery.
+ * @param {(data: Array) => void} onNext
+ * @param {(error: Error) => void} [onError]
+ * @returns {() => void} unsubscribe
+ */
+export function subscribePublishedWorks(onNext, onError) {
+  const q = query(worksRef(), where('published', '==', true))
+  return onSnapshot(q, (snap) => {
+    const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+    onNext(sortWorksNewestFirst(docs))
+  }, onError)
+}
+
+/**
+ * Get all works for a specific client (including private ones for that client).
+ * @param {string} clientId
+ * @returns {Promise<Array>}
+ */
+export async function getWorksByClient(clientId) {
+  const q = query(worksRef(), where('clientId', '==', clientId))
+  const snap = await getDocs(q)
+  const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+  return sortWorksNewestFirst(docs)
+}
+
+/**
+ * Subscribe to all works for a specific client.
+ * @param {string} clientId
+ * @param {(data: Array) => void} onNext
+ * @param {(error: Error) => void} [onError]
+ * @returns {() => void} unsubscribe
+ */
+export function subscribeWorksByClient(clientId, onNext, onError) {
+  const q = query(worksRef(), where('clientId', '==', clientId))
+  return onSnapshot(q, (snap) => {
+    const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+    onNext(sortWorksNewestFirst(docs))
+  }, onError)
+}
 
 /**
  * Create a new work document.
@@ -65,52 +154,6 @@ export async function createWork(data) {
 
   const ref = await addDoc(worksRef(), payload)
   return ref.id
-}
-
-/**
- * Get ALL works (admin view). Ordered by creation date descending.
- * @returns {Promise<Array>}
- */
-export async function getAllWorks() {
-  // Sort locally to avoid requiring a composite Firestore index
-  const snap = await getDocs(worksRef())
-  const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
-  return docs.sort((a, b) => {
-    const tA = a.createdAt?.seconds ?? 0
-    const tB = b.createdAt?.seconds ?? 0
-    return tB - tA
-  })
-}
-
-/**
- * Get only published works for the public gallery.
- * @returns {Promise<Array>}
- */
-export async function getPublishedWorks() {
-  const q = query(worksRef(), where('published', '==', true))
-  const snap = await getDocs(q)
-  const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
-  return docs.sort((a, b) => {
-    const tA = a.createdAt?.seconds ?? 0
-    const tB = b.createdAt?.seconds ?? 0
-    return tB - tA
-  })
-}
-
-/**
- * Get all works for a specific client (including private ones for that client).
- * @param {string} clientId
- * @returns {Promise<Array>}
- */
-export async function getWorksByClient(clientId) {
-  const q = query(worksRef(), where('clientId', '==', clientId))
-  const snap = await getDocs(q)
-  const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
-  return docs.sort((a, b) => {
-    const tA = a.createdAt?.seconds ?? 0
-    const tB = b.createdAt?.seconds ?? 0
-    return tB - tA
-  })
 }
 
 /**

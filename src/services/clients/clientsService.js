@@ -8,6 +8,7 @@ import {
   query,
   where,
   orderBy,
+  onSnapshot,
   serverTimestamp,
 } from 'firebase/firestore'
 import { db } from '@/firebase/config'
@@ -19,6 +20,62 @@ const clientsRef = () => collection(db, COLLECTIONS.CLIENTS)
 const usersRef = () => collection(db, COLLECTIONS.USERS)
 
 /**
+ * Map a manual client document to its UI shape.
+ * @param {import('firebase/firestore').QueryDocumentSnapshot} d
+ */
+function formatManualClient(d) {
+  const data = d.data()
+  return {
+    id: d.id,
+    isRegisteredUser: false,
+    name: data.name || '',
+    phone: data.phone || '',
+    whatsapp: data.whatsapp || '',
+    notes: data.notes || '',
+    totalVisits: data.totalVisits || 0,
+    whatsappOptIn: data.whatsappOptIn ?? false,
+    phoneVerified: data.phoneVerified ?? false,
+    remindersEnabled: data.remindersEnabled ?? false,
+    createdAt: data.createdAt,
+  }
+}
+
+/**
+ * Map a registered user document to its UI shape.
+ * @param {import('firebase/firestore').QueryDocumentSnapshot} d
+ */
+function formatRegisteredUser(d) {
+  const data = d.data()
+  return {
+    id: d.id, // Auth UID
+    isRegisteredUser: true,
+    name: data.displayName || data.email?.split('@')[0] || 'Usuario Registrado',
+    phone: data.phone || '',
+    whatsapp: data.phone || '', // fallback to phone
+    notes: data.notes || '',
+    totalVisits: data.totalVisits || 0,
+    whatsappOptIn: data.whatsappOptIn ?? false,
+    phoneVerified: data.phoneVerified ?? false,
+    remindersEnabled: data.remindersEnabled ?? false,
+    email: data.email,
+    createdAt: data.createdAt,
+  }
+}
+
+/**
+ * Merge manual clients and registered users, sorted alphabetically by name.
+ * @param {Array} manualClients
+ * @param {Array} registeredUsers
+ */
+function mergeClients(manualClients, registeredUsers) {
+  return [...manualClients, ...registeredUsers].sort((a, b) => {
+    const nameA = a.name?.toLowerCase() || ''
+    const nameB = b.name?.toLowerCase() || ''
+    return nameA.localeCompare(nameB)
+  })
+}
+
+/**
  * Get all clients, merging manual clients and registered users.
  * @returns {Promise<Array>}
  */
@@ -28,49 +85,46 @@ export async function getClients() {
     getDocs(query(usersRef(), where('role', '==', 'user')))
   ])
 
-  const manualClients = clientsSnap.docs.map((d) => {
-    const data = d.data()
-    return {
-      id: d.id,
-      isRegisteredUser: false,
-      name: data.name || '',
-      phone: data.phone || '',
-      whatsapp: data.whatsapp || '',
-      notes: data.notes || '',
-      totalVisits: data.totalVisits || 0,
-      whatsappOptIn: data.whatsappOptIn ?? false,
-      phoneVerified: data.phoneVerified ?? false,
-      remindersEnabled: data.remindersEnabled ?? false,
-      createdAt: data.createdAt,
-    }
-  })
+  const manualClients = clientsSnap.docs.map(formatManualClient)
+  const registeredUsers = usersSnap.docs.map(formatRegisteredUser)
 
-  const registeredUsers = usersSnap.docs.map((d) => {
-    const data = d.data()
-    return {
-      id: d.id, // Auth UID
-      isRegisteredUser: true,
-      name: data.displayName || data.email?.split('@')[0] || 'Usuario Registrado',
-      phone: data.phone || '',
-      whatsapp: data.phone || '', // fallback to phone
-      notes: data.notes || '', 
-      totalVisits: data.totalVisits || 0,
-      whatsappOptIn: data.whatsappOptIn ?? false,
-      phoneVerified: data.phoneVerified ?? false,
-      remindersEnabled: data.remindersEnabled ?? false,
-      email: data.email,
-      createdAt: data.createdAt,
-    }
-  })
+  return mergeClients(manualClients, registeredUsers)
+}
 
-  // Merge and sort alphabetically
-  const all = [...manualClients, ...registeredUsers].sort((a, b) => {
-    const nameA = a.name?.toLowerCase() || ''
-    const nameB = b.name?.toLowerCase() || ''
-    return nameA.localeCompare(nameB)
-  })
+/**
+ * Subscribe to all clients, re-merging manual clients and registered users on
+ * every snapshot from either collection.
+ * @param {(data: Array) => void} onNext
+ * @param {(error: Error) => void} [onError]
+ * @returns {() => void} unsubscribe
+ */
+export function subscribeClients(onNext, onError) {
+  let manualClients = []
+  let registeredUsers = []
+  let manualReady = false
+  let usersReady = false
 
-  return all
+  const emit = () => {
+    if (!manualReady || !usersReady) return
+    onNext(mergeClients(manualClients, registeredUsers))
+  }
+
+  const unsubClients = onSnapshot(query(clientsRef()), (snap) => {
+    manualClients = snap.docs.map(formatManualClient)
+    manualReady = true
+    emit()
+  }, onError)
+
+  const unsubUsers = onSnapshot(query(usersRef(), where('role', '==', 'user')), (snap) => {
+    registeredUsers = snap.docs.map(formatRegisteredUser)
+    usersReady = true
+    emit()
+  }, onError)
+
+  return () => {
+    unsubClients()
+    unsubUsers()
+  }
 }
 
 /**

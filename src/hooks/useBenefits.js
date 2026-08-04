@@ -4,7 +4,8 @@ import {
   getLastBenefitsEvent,
   redeemDiscount,
 } from '@/services/benefits/benefitsService'
-import { getBenefitsSettings } from '@/services/settings/settingsService'
+import { subscribeBenefitsSettings } from '@/services/settings/settingsService'
+import { createRealtimeQuery } from '@/lib/firestoreRealtime'
 
 const BENEFITS_KEY = 'benefits'
 
@@ -14,8 +15,8 @@ const BENEFITS_KEY = 'benefits'
 export function useBenefitsSettings() {
   return useQuery({
     queryKey: [BENEFITS_KEY, 'settings'],
-    queryFn: getBenefitsSettings,
-    staleTime: 1000 * 60 * 15,
+    queryFn: createRealtimeQuery(subscribeBenefitsSettings),
+    refetchOnMount: 'always',
   })
 }
 

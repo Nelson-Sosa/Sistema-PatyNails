@@ -1,4 +1,4 @@
-import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
+import { doc, getDoc, setDoc, updateDoc, onSnapshot, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/firebase/config'
 import { COLLECTIONS, BENEFITS } from '@/constants/app'
 import { toMinutes, minutesToTime, WEEK_DAY_KEYS } from '@/services/scheduleService'
@@ -37,8 +37,15 @@ export async function getBenefitsSettings() {
     }
   }
 
-  const data = snap.data()
-  const benefitsProgram = data.loyaltyProgram || {}
+  return mapBenefitsSettings(snap.data())
+}
+
+/**
+ * Map the settings document to the benefits settings shape (with defaults).
+ * @param {Object} data
+ */
+function mapBenefitsSettings(data) {
+  const benefitsProgram = data?.loyaltyProgram || {}
   return {
     enabled: benefitsProgram.enabled ?? true,
     rewardEveryVisits: benefitsProgram.rewardEveryVisits ?? BENEFITS.DEFAULT_REWARD_EVERY_VISITS,
@@ -47,6 +54,18 @@ export async function getBenefitsSettings() {
     rewardDescription: benefitsProgram.rewardDescription ?? BENEFITS.REWARD_DESCRIPTION,
     showProgress: benefitsProgram.showProgress ?? true,
   }
+}
+
+/**
+ * Subscribe to the benefits program settings.
+ * @param {(data: Object) => void} onNext
+ * @param {(error: Error) => void} [onError]
+ * @returns {() => void} unsubscribe
+ */
+export function subscribeBenefitsSettings(onNext, onError) {
+  return onSnapshot(settingsRef(), (snap) => {
+    onNext(snap.exists() ? mapBenefitsSettings(snap.data()) : mapBenefitsSettings({}))
+  }, onError)
 }
 
 export async function updateSettings(data) {
@@ -102,6 +121,19 @@ export async function getPaymentSettings() {
   const snap = await getDoc(paymentsSettingsRef())
   if (!snap.exists()) return { ...DEFAULT_PAYMENT_SETTINGS }
   return { ...DEFAULT_PAYMENT_SETTINGS, ...snap.data() }
+}
+
+/**
+ * Subscribe to payment settings (settings/payments), with defaults applied
+ * when the document doesn't exist yet.
+ * @param {(data: Object) => void} onNext
+ * @param {(error: Error) => void} [onError]
+ * @returns {() => void} unsubscribe
+ */
+export function subscribePaymentSettings(onNext, onError) {
+  return onSnapshot(paymentsSettingsRef(), (snap) => {
+    onNext(snap.exists() ? { ...DEFAULT_PAYMENT_SETTINGS, ...snap.data() } : { ...DEFAULT_PAYMENT_SETTINGS })
+  }, onError)
 }
 
 /**
@@ -227,8 +259,15 @@ function deriveLegacyFromSchedule(weeklySchedule) {
  */
 export async function getBusinessSettings() {
   const snap = await getDoc(businessSettingsRef())
-  const data = snap.exists() ? snap.data() : {}
+  return mapBusinessSettings(snap.exists() ? snap.data() : {})
+}
 
+/**
+ * Map a business settings document to its final shape (defaults merged,
+ * legacy aliases honored, weeklySchedule normalized).
+ * @param {Object} data
+ */
+function mapBusinessSettings(data) {
   const merged = { ...DEFAULT_BUSINESS_SETTINGS, ...data }
 
   // Legacy alias support (openingHour/closingHour/interval/minimumDuration)
@@ -244,6 +283,20 @@ export async function getBusinessSettings() {
   )
 
   return merged
+}
+
+/**
+ * Subscribe to business settings (settings/business). Re-emits with the full
+ * normalized shape (defaults + weeklySchedule) on every snapshot, so changes
+ * to opening hours, intervals or weekly blocks apply without a reload.
+ * @param {(data: Object) => void} onNext
+ * @param {(error: Error) => void} [onError]
+ * @returns {() => void} unsubscribe
+ */
+export function subscribeBusinessSettings(onNext, onError) {
+  return onSnapshot(businessSettingsRef(), (snap) => {
+    onNext(mapBusinessSettings(snap.exists() ? snap.data() : {}))
+  }, onError)
 }
 
 /**

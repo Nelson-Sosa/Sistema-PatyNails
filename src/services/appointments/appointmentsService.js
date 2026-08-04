@@ -8,6 +8,7 @@ import {
   query,
   where,
   orderBy,
+  onSnapshot,
   Timestamp,
   serverTimestamp,
 } from 'firebase/firestore'
@@ -61,6 +62,50 @@ export async function getAppointmentsByDateRange(start, end) {
 
   const snap = await getDocs(q)
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+}
+
+/**
+ * Build the Firestore query used for a date range (shared by one-shot and
+ * realtime reads so both always see identical data).
+ * @param {Date} start
+ * @param {Date} end
+ */
+function rangeQuery(start, end) {
+  return query(
+    appointmentsRef(),
+    where('date', '>=', Timestamp.fromDate(start)),
+    where('date', '<=', Timestamp.fromDate(end)),
+    orderBy('date', 'asc')
+  )
+}
+
+/**
+ * Subscribe to appointments within a date range.
+ * @param {Date} start
+ * @param {Date} end
+ * @param {(data: Array) => void} onNext
+ * @param {(error: Error) => void} [onError]
+ * @returns {() => void} unsubscribe
+ */
+export function subscribeAppointmentsByDateRange(start, end, onNext, onError) {
+  return onSnapshot(rangeQuery(start, end), (snap) => {
+    onNext(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+  }, onError)
+}
+
+/**
+ * Subscribe to all appointments for a single date.
+ * @param {Date} date
+ * @param {(data: Array) => void} onNext
+ * @param {(error: Error) => void} [onError]
+ * @returns {() => void} unsubscribe
+ */
+export function subscribeAppointmentsByDate(date, onNext, onError) {
+  const start = new Date(date)
+  start.setHours(0, 0, 0, 0)
+  const end = new Date(date)
+  end.setHours(23, 59, 59, 999)
+  return subscribeAppointmentsByDateRange(start, end, onNext, onError)
 }
 
 /**
@@ -368,6 +413,29 @@ export async function getAppointmentsByClient(clientId) {
     }
     return timeB - timeA // Descending date
   })
+}
+
+/**
+ * Subscribe to all appointments for a specific client.
+ * @param {string} clientId
+ * @param {(data: Array) => void} onNext
+ * @param {(error: Error) => void} [onError]
+ * @returns {() => void} unsubscribe
+ */
+export function subscribeAppointmentsByClient(clientId, onNext, onError) {
+  return onSnapshot(query(appointmentsRef(), where('clientId', '==', clientId)), (snap) => {
+    const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+    onNext(
+      docs.sort((a, b) => {
+        const timeA = a.date?.seconds || 0
+        const timeB = b.date?.seconds || 0
+        if (timeA === timeB) {
+          return (b.time || '').localeCompare(a.time || '')
+        }
+        return timeB - timeA
+      })
+    )
+  }, onError)
 }
 
 /**

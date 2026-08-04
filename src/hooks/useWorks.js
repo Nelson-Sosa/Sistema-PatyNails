@@ -5,14 +5,15 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  getAllWorks,
-  getPublishedWorks,
-  getWorksByClient,
+  subscribeAllWorks,
+  subscribePublishedWorks,
+  subscribeWorksByClient,
   createWork,
   updateWork,
   toggleWorkPublished,
   deleteWork,
 } from '@/services/works/worksService'
+import { createRealtimeQuery } from '@/lib/firestoreRealtime'
 
 export const WORKS_QUERY_KEY = 'works'
 
@@ -22,8 +23,8 @@ export const WORKS_QUERY_KEY = 'works'
 export function useWorks() {
   return useQuery({
     queryKey: [WORKS_QUERY_KEY, 'all'],
-    queryFn: getAllWorks,
-    staleTime: 1000 * 60 * 2, // 2 minutes
+    queryFn: createRealtimeQuery(subscribeAllWorks),
+    refetchOnMount: 'always',
   })
 }
 
@@ -33,8 +34,8 @@ export function useWorks() {
 export function usePublishedWorks() {
   return useQuery({
     queryKey: [WORKS_QUERY_KEY, 'published'],
-    queryFn: getPublishedWorks,
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    queryFn: createRealtimeQuery(subscribePublishedWorks),
+    refetchOnMount: 'always',
   })
 }
 
@@ -45,9 +46,9 @@ export function usePublishedWorks() {
 export function useClientWorks(clientId) {
   return useQuery({
     queryKey: [WORKS_QUERY_KEY, 'byClient', clientId],
-    queryFn: () => getWorksByClient(clientId),
+    queryFn: createRealtimeQuery((onNext, onError) => subscribeWorksByClient(clientId, onNext, onError)),
     enabled: !!clientId,
-    staleTime: 1000 * 60 * 5,
+    refetchOnMount: 'always',
   })
 }
 

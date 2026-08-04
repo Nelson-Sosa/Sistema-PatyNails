@@ -1,11 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  getClients,
+  subscribeClients,
   getClientById,
   createClient,
   updateClient,
 } from '@/services/clients/clientsService'
-import { getAppointmentsByClient } from '@/services/appointments/appointmentsService'
+import { subscribeAppointmentsByClient } from '@/services/appointments/appointmentsService'
+import { createRealtimeQuery } from '@/lib/firestoreRealtime'
 
 const QUERY_KEY = 'clients'
 
@@ -15,8 +16,8 @@ const QUERY_KEY = 'clients'
 export function useClients() {
   return useQuery({
     queryKey: [QUERY_KEY],
-    queryFn: getClients,
-    staleTime: 1000 * 60 * 5,
+    queryFn: createRealtimeQuery(subscribeClients),
+    refetchOnMount: 'always',
   })
 }
 
@@ -39,8 +40,9 @@ export function useClient(clientId) {
 export function useClientHistory(clientId) {
   return useQuery({
     queryKey: [QUERY_KEY, clientId, 'history'],
-    queryFn: () => getAppointmentsByClient(clientId),
+    queryFn: createRealtimeQuery((onNext, onError) => subscribeAppointmentsByClient(clientId, onNext, onError)),
     enabled: !!clientId,
+    refetchOnMount: 'always',
   })
 }
 
