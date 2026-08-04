@@ -2,45 +2,57 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronDown, Edit2, Plus, Clock, ArrowRight, Trash2 } from 'lucide-react'
 import {
-  Hand, Footprints, Eye, EyeClosed, FaceMask, HairDryer,
-  FlowerLotus, Handshake, SprayBottle, Palette, Sparkle,
+  FaceMask, HairDryer, FlowerLotus, Handshake, SprayBottle, Palette,
+  Sparkle,
 } from '@phosphor-icons/react'
+import {
+  ManicureIcon, PedicureIcon, EyebrowIcon, LashIcon, PolishIcon,
+} from '@/components/icons/CategoryIcons'
 import { formatCurrency } from '@/utils/formatters'
 import Badge from '@/components/ui/Badge'
 
-const CATEGORY_ICONS = {
-  manicura: Hand,
-  uñas: Hand,
-  manos: Hand,
-  nail: Hand,
-  pedicura: Footprints,
-  pies: Footprints,
-  cejas: Eye,
-  brow: Eye,
-  pestañas: EyeClosed,
-  lash: EyeClosed,
-  facial: FaceMask,
-  face: FaceMask,
-  rostro: FaceMask,
-  cabello: HairDryer,
-  pelo: HairDryer,
-  hair: HairDryer,
-  spa: FlowerLotus,
-  masajes: Handshake,
-  masaje: Handshake,
-  massage: Handshake,
-  maquillaje: Palette,
-  makeup: Palette,
-  tratamientos: Sparkle,
-  tratamiento: Sparkle,
-  depilación: SprayBottle,
-  depilacion: SprayBottle,
-  wax: SprayBottle,
-}
+const CATEGORY_ICONS = [
+  /* More specific patterns first so "Uñas acrílicas" → polish bottle */
+  ['acrílic', PolishIcon],
+  ['acrilic', PolishIcon],
+  ['gel', PolishIcon],
+  ['nailart', PolishIcon],
+  ['nail art', PolishIcon],
+  ['manicura', ManicureIcon],
+  ['manicure', ManicureIcon],
+  ['mano', ManicureIcon],
+  ['uñas', ManicureIcon],
+  ['uña', ManicureIcon],
+  ['nail', ManicureIcon],
+  ['pedicura', PedicureIcon],
+  ['pedicure', PedicureIcon],
+  ['pies', PedicureIcon],
+  ['cejas', EyebrowIcon],
+  ['ceja', EyebrowIcon],
+  ['brow', EyebrowIcon],
+  ['pestañas', LashIcon],
+  ['pestana', LashIcon],
+  ['lash', LashIcon],
+  ['facial', FaceMask],
+  ['face', FaceMask],
+  ['rostro', FaceMask],
+  ['cabello', HairDryer],
+  ['pelo', HairDryer],
+  ['hair', HairDryer],
+  ['spa', FlowerLotus],
+  ['masaje', Handshake],
+  ['massage', Handshake],
+  ['maquillaje', Palette],
+  ['makeup', Palette],
+  ['tratamiento', Sparkle],
+  ['depilación', SprayBottle],
+  ['depilacion', SprayBottle],
+  ['wax', SprayBottle],
+]
 
 function getCategoryIcon(name) {
   const key = (name || '').toLowerCase().trim()
-  for (const [pattern, Icon] of Object.entries(CATEGORY_ICONS)) {
+  for (const [pattern, Icon] of CATEGORY_ICONS) {
     if (key.includes(pattern)) return Icon
   }
   return Sparkle
@@ -66,12 +78,16 @@ function CategoryCard({ category, services, isAdmin, onEditCategory, onAddServic
         tabIndex={0}
         onClick={() => setIsOpen(!isOpen)}
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIsOpen(!isOpen) } }}
-        className="flex w-full items-center gap-3 sm:gap-4 px-4 sm:px-6 py-5 sm:py-6 text-left cursor-pointer select-none"
+        className="group/header flex w-full items-center gap-3 sm:gap-4 px-4 sm:px-6 py-5 sm:py-6 text-left cursor-pointer select-none"
       >
         {/* LEFT: Icon + Name */}
         <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
-          <span className="relative flex h-12 w-12 sm:h-14 sm:w-14 flex-shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-500/20 to-violet-500/10 ring-1 ring-brand-pastel shadow-md shadow-rose-500/10">
-            <Icon className="h-5 w-5 sm:h-6 sm:w-6 text-rose-400" />
+          <span
+            role="img"
+            aria-label={`Categoría: ${category.name}`}
+            className="relative flex h-12 w-12 sm:h-14 sm:w-14 flex-shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-500/20 to-violet-500/10 ring-1 ring-brand-pastel shadow-md shadow-rose-500/10 transition-all duration-200 ease-out group-hover/header:-translate-y-0.5 group-hover/header:scale-[1.08] group-hover/header:from-rose-500/30 group-hover/header:to-violet-500/15 group-hover/header:ring-brand-primary/50 group-hover/header:shadow-lg group-hover/header:shadow-rose-500/20"
+          >
+            <Icon className="h-5 w-5 sm:h-6 sm:w-6 text-rose-400 transition-colors duration-200 group-hover/header:text-brand-primary" />
           </span>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
