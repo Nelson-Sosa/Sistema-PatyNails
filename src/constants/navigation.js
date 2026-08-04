@@ -73,7 +73,7 @@ export const NAV_ITEMS = [
     path: ROUTES.BOOKING,
     icon: CalendarPlus,
     description: 'Reservar un turno',
-    roles: ['admin', 'user'],
+    roles: ['user'],
   },
   {
     id: 'public-works',
