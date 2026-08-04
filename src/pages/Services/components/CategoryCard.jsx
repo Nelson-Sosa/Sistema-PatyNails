@@ -2,12 +2,12 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronDown, Edit2, Plus, Clock, ArrowRight, Trash2 } from 'lucide-react'
 import {
-  FaceMask, HairDryer, FlowerLotus, Handshake, SprayBottle, Palette,
-  Sparkle,
+  FaceMask, HairDryer, FlowerLotus, Handshake, SprayBottle, Sparkle,
 } from '@phosphor-icons/react'
 import { ManicureIcon } from '@/components/icons/ManicureIcon'
 import { PedicureIcon } from '@/components/icons/PedicureIcon'
 import { EyebrowIcon } from '@/components/icons/EyebrowIcon'
+import { MaquillajeIcon } from '@/components/icons/MaquillajeIcon'
 import { LashIcon, PolishIcon } from '@/components/icons/CategoryIcons'
 import { formatCurrency } from '@/utils/formatters'
 import Badge from '@/components/ui/Badge'
@@ -43,8 +43,8 @@ const CATEGORY_ICONS = [
   ['spa', FlowerLotus],
   ['masaje', Handshake],
   ['massage', Handshake],
-  ['maquillaje', Palette],
-  ['makeup', Palette],
+  ['maquillaje', MaquillajeIcon],
+  ['makeup', MaquillajeIcon],
   ['tratamiento', Sparkle],
   ['depilación', SprayBottle],
   ['depilacion', SprayBottle],

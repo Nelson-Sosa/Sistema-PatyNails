@@ -1,11 +1,11 @@
-/* Cejas — uses the branded eyebrow-pencil illustration asset.
+/* Maquillaje — uses the branded makeup illustration asset.
    Rendered as an <img> from the public folder so it scales cleanly
    (crisp at 2x on the small CategoryCard badge). */
-export function EyebrowIcon({ className, ...props }) {
+export function MaquillajeIcon({ className, ...props }) {
   return (
     <img
-      src="/lapiz-de-cejas.png"
-      alt="Cejas"
+      src="/maquillaje.png"
+      alt="Maquillaje"
       draggable={false}
       className={className}
       {...props}
@@ -13,4 +13,4 @@ export function EyebrowIcon({ className, ...props }) {
   )
 }
 
-export default EyebrowIcon
+export default MaquillajeIcon
