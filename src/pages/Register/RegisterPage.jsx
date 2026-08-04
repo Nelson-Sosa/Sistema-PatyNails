@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, useLocation, Link } from 'react-router-dom'
+import { useNavigate, useLocation, useSearchParams, Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import toast from 'react-hot-toast'
@@ -9,6 +9,9 @@ import { useAuth } from '@/hooks/useAuth'
 import { registerSchema } from '@/schemas/authSchemas'
 import { ROUTES } from '@/routes/routes'
 import { APP_NAME } from '@/constants/app'
+import { formatPhoneStoragePY } from '@/utils/formatters'
+import { updateUserProfile } from '@/services/users/userProfileService'
+import { linkGuestHistory } from '@/services/benefits/benefitsService'
 import LogoSrc from '@/assets/PatyNailsLogo.jpg'
 import { usePageTitle } from '@/hooks/usePageTitle'
 
@@ -21,10 +24,13 @@ function RegisterPage() {
   const { register: registerUser, isAuthenticated, loading } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
+  const [searchParams] = useSearchParams()
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
   const from = location.state?.from?.pathname || ROUTES.SERVICES
+  // Optional phone passed from the guest booking success screen to link history.
+  const phoneParam = searchParams.get('phone')
 
   useEffect(() => {
     if (!loading && isAuthenticated) {
@@ -43,7 +49,22 @@ function RegisterPage() {
 
   const onSubmit = async ({ displayName, email, password }) => {
     try {
-      await registerUser(email, password, displayName)
+      const credential = await registerUser(email, password, displayName)
+
+      // Link the guest history recorded under the same phone (if any).
+      // The creation of the account is never blocked by this step.
+      if (phoneParam) {
+        try {
+          const phone = formatPhoneStoragePY(phoneParam)
+          if (phone) {
+            await updateUserProfile(credential.user.uid, { displayName, phone, whatsappOptIn: true })
+            await linkGuestHistory(phone, credential.user.uid)
+          }
+        } catch (linkErr) {
+          console.warn('[register] no se pudo vincular historial de invitado:', linkErr?.message)
+        }
+      }
+
       toast.success('¡Cuenta creada con éxito!')
       navigate(from, { replace: true })
     } catch (error) {

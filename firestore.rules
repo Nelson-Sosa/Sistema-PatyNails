@@ -40,10 +40,12 @@ service cloud.firestore {
     }
 
     // ─── SETTINGS ───
-    // settings/salon and settings/payments both live under /settings/{docId}
+    // settings/salon, settings/payments and settings/business live under /settings/{docId}
     match /settings/{docId} {
-      // Everyone authenticated can read (needed for booking flow and public info)
-      allow read: if isAuthenticated();
+      // Public read: needed for the guest booking flow (business hours, payment
+      // instructions, loyalty program config) and for public info on the site.
+      // Contains only salon-level config — no client PII.
+      allow read: if true;
       // Only admins can write (bank data, payment config, etc.)
       allow write: if isAdmin();
     }
@@ -65,21 +67,41 @@ service cloud.firestore {
       // Admin tiene control total sobre todos los turnos
       allow read, write: if isAdmin();
 
-      // Usuario: puede leer TODOS los turnos (necesario para verificar disponibilidad)
-      allow read: if isAuthenticated();
+      // Lectura pública (guest booking): necesaria para calcular la disponibilidad
+      // y verificar conflictos de horario sin iniciar sesión.
+      // NOTA: expone el contenido de los turnos (igual que el comportamiento actual
+      // para cualquier usuario autenticado). Es el mecanismo existente de disponibilidad.
+      allow read: if true;
 
-      // Usuario: solo puede crear turnos a futuro y a su propio nombre
+      // Usuario registrado: solo puede crear turnos a futuro y a su propio nombre
       allow create: if isAuthenticated()
         && request.resource.data.clientId == request.auth.uid
         && request.resource.data.date >= request.time;
 
-      // Usuario: puede actualizar sus propios turnos en dos casos:
+      // Invitado (sin cuenta): puede crear su propio turno
+      // - Debe marcarse como invitado (isGuest == true)
+      // - No debe tener userId ni clientId
+      // - Debe incluir un guestToken generado al azar (>= 24 chars) que lo identifica
+      // - La fecha debe ser futura
+      allow create: if !isAuthenticated()
+        && request.resource.data.isGuest == true
+        && request.resource.data.userId == null
+        && request.resource.data.clientId == null
+        && request.resource.data.date >= request.time
+        && request.resource.data.guestToken is string
+        && request.resource.data.guestToken.size() >= 24;
+
+      // Usuario: puede actualizar sus propios turnos en tres casos:
       //   1) Cancelar (status = 'cancelled') — regla original
       //   2) Subir/reemplazar comprobante de seña:
       //        - Solo modifica el campo 'payment' y 'updatedAt'
       //        - El nuevo payment.status debe ser 'proof_submitted'
       //        - El clientId del turno debe coincidir con el usuario autenticado
       //        - No puede cambiar otros campos del turno (status, date, price, etc.)
+      //   3) Vincular historial de invitado al crear cuenta:
+      //        - El turno debe ser de un invitado (isGuest == true)
+      //        - El teléfono del turno debe coincidir con el teléfono registrado del usuario
+      //        - Solo puede cambiar userId, isGuest, clientId y updatedAt
       allow update: if isAuthenticated()
         && resource.data.clientId == request.auth.uid
         && (
@@ -96,7 +118,27 @@ service cloud.firestore {
             request.resource.data.diff(resource.data).affectedKeys()
               .hasOnly(['payment', 'updatedAt'])
           )
-        );
+        )
+      || (
+        // Case 3: Guest history linking (solo si el teléfono coincide con el del usuario)
+        isAuthenticated()
+        && resource.data.isGuest == true
+        && request.resource.data.isGuest == false
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.get('clientPhone', '')
+            == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.phone
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['userId', 'isGuest', 'clientId', 'updatedAt'])
+      );
+
+      // Invitado: solo puede reenviar el comprobante de seña de SU turno,
+      // presentando el guestToken generado al momento de la reserva.
+      allow update: if !isAuthenticated()
+        && resource.data.isGuest == true
+        && request.resource.data.get('guestToken', '') == resource.data.guestToken
+        && request.resource.data.get('payment.status', '') == 'proof_submitted'
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['payment', 'updatedAt']);
     }
 
     // ─── INGRESOS ───
@@ -116,6 +158,15 @@ service cloud.firestore {
     match /loyaltyHistory/{docId} {
       allow read: if isAuthenticated();
       allow write: if isAdmin();
+
+      // Al vincular el historial de un invitado por teléfono, el usuario puede
+      // mover sus propios registros (clientId == teléfono) hacia su UID.
+      allow update: if isAuthenticated()
+        && request.resource.data.clientId == request.auth.uid
+        && resource.data.clientId
+            == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.phone
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['clientId']);
     }
 
     // ─── TRABAJOS (PORTFOLIO) ───

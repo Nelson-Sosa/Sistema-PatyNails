@@ -1,6 +1,7 @@
 import {
   LayoutDashboard,
   CalendarDays,
+  CalendarPlus,
   Users,
   Settings,
   UserCircle,
@@ -64,6 +65,14 @@ export const NAV_ITEMS = [
     path: ROUTES.SERVICES,
     icon: ServiciosIcon,
     description: 'Servicios y precios',
+    roles: ['admin', 'user'],
+  },
+  {
+    id: 'booking',
+    label: 'Reservar',
+    path: ROUTES.BOOKING,
+    icon: CalendarPlus,
+    description: 'Reservar un turno',
     roles: ['admin', 'user'],
   },
   {

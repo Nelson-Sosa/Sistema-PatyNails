@@ -1,10 +1,9 @@
 import { useState, useMemo } from 'react'
 import { Scissors, Plus, FolderKanban, Search, X } from 'lucide-react'
 import { NailPolishIcon } from '@/components/icons/NailPolishIcon'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { usePageTitle } from '@/hooks/usePageTitle'
 import { useAuth } from '@/hooks/useAuth'
-import { usePendingAction } from '@/hooks/usePendingAction'
 import { useServices, useAllServices, useDeleteService } from '@/hooks/useServices'
 import { useCategories } from '@/hooks/useServiceCategories'
 import { ROUTES } from '@/routes/routes'
@@ -21,12 +20,10 @@ import toast from 'react-hot-toast'
 function ServicesPage() {
   usePageTitle('Servicios')
   const navigate = useNavigate()
-  const location = useLocation()
 
-  const { isAuthenticated, role } = useAuth()
+  const { role } = useAuth()
   const isAdmin = role === USER_ROLES.ADMIN
 
-  const { savePendingAction } = usePendingAction()
   const [serviceModalOpen, setServiceModalOpen] = useState(false)
   const [selectedService, setSelectedService] = useState(null)
   const [preSelectedCategoryId, setPreSelectedCategoryId] = useState(null)
@@ -85,12 +82,9 @@ function ServicesPage() {
   }, [rawServices, categories, isAdmin, searchQuery])
 
   const handleBookService = (serviceId) => {
-    if (!isAuthenticated) {
-      savePendingAction({ type: 'BOOK_SERVICE', payload: { serviceId } })
-      navigate(ROUTES.LOGIN, { state: { from: location } })
-    } else {
-      navigate(ROUTES.APPOINTMENTS, { state: { selectedServiceId: serviceId } })
-    }
+    // Both registered users and guests book through the public booking page
+    // (guests can complete the reservation without creating an account).
+    navigate(ROUTES.BOOKING, { state: { selectedServiceId: serviceId } })
   }
 
   const handleEditService = (service) => {

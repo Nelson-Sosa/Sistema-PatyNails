@@ -1,11 +1,15 @@
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/firebase/config'
 import { COLLECTIONS } from '@/constants/app'
+import { linkGuestHistory } from '@/services/benefits/benefitsService'
 
 /**
  * Update a user's editable profile fields in Firestore.
  * The user can only edit their own doc (enforced by Firestore rules).
  * Fields NOT allowed to be changed here: role, phoneVerified, createdAt, uid, email.
+ *
+ * When a phone is set, any guest history recorded under that phone is
+ * automatically linked to the account (appointments + loyalty progress).
  *
  * @param {string} uid
  * @param {{ displayName: string, phone: string|null, whatsappOptIn: boolean }} data
@@ -33,6 +37,13 @@ export async function updateUserProfile(uid, data) {
   }
 
   await updateDoc(ref, payload)
+
+  // Fire-and-forget: link any guest bookings/loyalty recorded under this phone.
+  if (phone) {
+    linkGuestHistory(phone, uid).catch((err) => {
+      console.warn('[userProfile] no se pudo vincular historial de invitado:', err?.message)
+    })
+  }
 }
 
 /**

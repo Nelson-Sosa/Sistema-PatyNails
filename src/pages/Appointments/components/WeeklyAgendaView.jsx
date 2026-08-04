@@ -399,6 +399,11 @@ export default function WeeklyAgendaView() {
                               <div className="relative z-10 flex flex-col h-full px-1 lg:px-1.5 py-0.5 lg:py-1 min-h-0">
                                 <span className="truncate text-[10px] lg:text-xs font-semibold text-white leading-tight">
                                   {apt.clientName}
+                                  {apt.isGuest && (
+                                    <span className="ml-1 rounded-sm bg-amber-500/20 px-1 text-[8px] lg:text-[9px] font-medium text-amber-300 align-middle">
+                                      inv
+                                    </span>
+                                  )}
                                 </span>
 
                                 <div className="flex-1 min-h-0" />

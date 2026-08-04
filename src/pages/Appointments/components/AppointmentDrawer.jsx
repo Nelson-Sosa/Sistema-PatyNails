@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { X, Clock, Calendar, Scissors, Camera, Banknote, CheckCircle, XCircle, ExternalLink } from 'lucide-react'
+import { X, Clock, Calendar, Scissors, Camera, Banknote, CheckCircle, XCircle, ExternalLink, UserRound, UserCheck, Phone } from 'lucide-react'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import toast from 'react-hot-toast'
@@ -91,11 +91,32 @@ export default function AppointmentDrawer({ appointment, isOpen, onClose, onEdit
         isOpen ? 'translate-x-0' : 'translate-x-full'
       )}>
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-brand-border px-4 py-3 shrink-0">
-          <h2 className="text-lg font-bold text-brand-text truncate">{appointment.clientName}</h2>
-          <button onClick={onClose} className="rounded-lg p-1.5 text-brand-text-muted hover:bg-brand-pastel/30 hover:text-brand-text">
-            <X className="h-5 w-5" />
-          </button>
+        <div className="flex flex-col gap-1 border-b border-brand-border px-4 py-3 shrink-0">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <h2 className="text-lg font-bold text-brand-text truncate">{appointment.clientName}</h2>
+              {appointment.isGuest ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-500">
+                  <UserRound className="h-3 w-3" />
+                  Invitado
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-500">
+                  <UserCheck className="h-3 w-3" />
+                  Registrado
+                </span>
+              )}
+            </div>
+            <button onClick={onClose} className="rounded-lg p-1.5 text-brand-text-muted hover:bg-brand-pastel/30 hover:text-brand-text">
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+          {appointment.clientPhone && (
+            <p className="flex items-center gap-1.5 text-xs text-brand-text-muted">
+              <Phone className="h-3 w-3" />
+              {appointment.clientPhone}
+            </p>
+          )}
         </div>
 
         {/* Body */}

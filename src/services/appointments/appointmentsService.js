@@ -16,7 +16,7 @@ import { COLLECTIONS, APPOINTMENT_STATUS, PAYMENT_STATUS, DEFAULT_PROFESSIONAL_I
 import { NOTIFICATION_TYPES } from '@/constants/notifications'
 import { createIncomeEntry } from '@/services/income/incomeService'
 import { createNotification } from '@/services/notifications/notificationsService'
-import { processCompletedVisit } from '@/services/benefits/benefitsService'
+import { processCompletedVisit, processGuestCompletedVisit } from '@/services/benefits/benefitsService'
 
 const appointmentsRef = () => collection(db, COLLECTIONS.APPOINTMENTS)
 
@@ -64,23 +64,35 @@ export async function getAppointmentsByDateRange(start, end) {
 }
 
 /**
- * Create a new appointment.
- *
- * When paymentData is provided (seña enabled), the appointment is created with
- * payment info embedded. The appointment always starts as 'pending'.
+ * Generate a random guest token used to securely identify a guest appointment
+ * (allows the guest to re-upload a payment proof without an account).
+ * @returns {string} 32-char hex token
+ */
+function generateGuestToken() {
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    const arr = new Uint8Array(16)
+    crypto.getRandomValues(arr)
+    return Array.from(arr, (b) => b.toString(16).padStart(2, '0')).join('')
+  }
+  return Math.random().toString(36).slice(2) + Date.now().toString(36) + Math.random().toString(36).slice(2)
+}
+
+/**
+ * Shared internal builder for appointment documents.
+ * Supports registered users, legacy calls and guests.
  *
  * @param {Object} data
- * @param {Object|null} [data.payment] - Optional payment snapshot (see model below)
+ * @param {Object} [meta] - { isGuest?, userId?, guestToken? }
  * @returns {Promise<string>} new document ID
  */
-export async function createAppointment(data) {
+async function createAppointmentRecord(data, meta = {}) {
   const [hours, minutes] = data.time.split(':').map(Number)
   const preciseDate = data.date instanceof Date ? new Date(data.date) : new Date(data.date)
   preciseDate.setHours(hours, minutes, 0, 0)
 
   const now = Timestamp.now()
 
-  // Build the payment object if a seña is required
+  // Build the payment snapshot if a seña is required
   let paymentPayload = null
   if (data.payment && data.payment.enabled) {
     const timeoutMinutes = data.payment.timeoutMinutes ?? 30
@@ -103,13 +115,13 @@ export async function createAppointment(data) {
       reviewedAt: null,
       rejectionReason: '',
       paymentHistory: [
-        { status: PAYMENT_STATUS.PROOF_SUBMITTED, createdAt: now, createdBy: data.clientId },
+        { status: PAYMENT_STATUS.PROOF_SUBMITTED, createdAt: now, createdBy: data.clientId ?? data.clientPhone ?? null },
       ],
     }
   }
 
   const payload = {
-    clientId: data.clientId,
+    clientId: data.clientId ?? null,
     serviceId: data.serviceId,
     professionalId: data.professionalId ?? DEFAULT_PROFESSIONAL_ID,
     date: Timestamp.fromDate(preciseDate),
@@ -120,7 +132,8 @@ export async function createAppointment(data) {
     clientName: data.clientName ?? '',
     serviceName: data.serviceName ?? '',
     notes: data.notes ?? '',
-    clientPhone: data.clientPhone ?? null,
+    clientPhone: data.clientPhone ?? data.phone ?? null,
+    email: data.email ?? null,
     reminderSent: false,
     reminderSentAt: null,
     ...(paymentPayload ? { payment: paymentPayload } : {}),
@@ -128,33 +141,100 @@ export async function createAppointment(data) {
     updatedAt: serverTimestamp(),
   }
 
+  // Hybrid booking model fields (optional for legacy calls that don't set them)
+  if (meta.isGuest !== undefined) payload.isGuest = meta.isGuest
+  if (meta.userId !== undefined) payload.userId = meta.userId
+  if (meta.guestToken !== undefined) payload.guestToken = meta.guestToken
+
   const ref = await addDoc(appointmentsRef(), payload)
 
-  // If already done on creation (edge-case), register income
+  // If completed at creation (admin edge-case), register income
   if (payload.status === APPOINTMENT_STATUS.DONE) {
     await createIncomeEntry({ id: ref.id, ...payload })
   }
 
-  // Notification depends on whether there's a payment proof pending review
-  if (paymentPayload) {
-    createNotification({
-      title: 'Comprobante de seña recibido',
-      message: `${payload.clientName} reservó ${payload.serviceName} y envió el comprobante`,
-      type: NOTIFICATION_TYPES.PAYMENT_PROOF_SUBMITTED,
-      entityId: ref.id,
-      entityType: 'appointment',
-    })
-  } else {
-    createNotification({
-      title: 'Nuevo turno',
-      message: `${payload.clientName} reservó ${payload.serviceName}`,
-      type: NOTIFICATION_TYPES.APPOINTMENT_CREATED,
-      entityId: ref.id,
-      entityType: 'appointment',
-    })
-  }
+  // Notification depends on whether there's a payment proof pending review.
+  // GUESTS are not authenticated, so notification creation can be rejected by the
+  // rules — that's expected (guests can't receive in-app notifications). We swallow
+  // the error so a failed notification never fails the appointment itself.
+  const notificationPromise = paymentPayload
+    ? createNotification({
+        title: 'Comprobante de seña recibido',
+        message: `${payload.clientName} reservó ${payload.serviceName} y envió el comprobante`,
+        type: NOTIFICATION_TYPES.PAYMENT_PROOF_SUBMITTED,
+        entityId: ref.id,
+        entityType: 'appointment',
+      })
+    : createNotification({
+        title: 'Nuevo turno',
+        message: `${payload.clientName} reservó ${payload.serviceName}`,
+        type: NOTIFICATION_TYPES.APPOINTMENT_CREATED,
+        entityId: ref.id,
+        entityType: 'appointment',
+      })
+
+  notificationPromise.catch(() => {
+    // Silently ignore notification failures (expected for guests without auth).
+  })
 
   return ref.id
+}
+
+/**
+ * Create a new appointment for a REGISTERED user.
+ *
+ * Same behaviour as the legacy `createAppointment`, but explicitly stores the
+ * hybrid model fields: isGuest = false and userId = the Firebase UID.
+ *
+ * When paymentData is provided (seña enabled), the appointment is created with
+ * payment info embedded. The appointment always starts as 'pending'.
+ *
+ * @param {Object} data - includes clientId (Firebase UID), clientName, clientPhone, email, serviceId, serviceName, price, duration, date, time, payment
+ * @returns {Promise<string>} new document ID
+ */
+export async function createUserAppointment(data) {
+  const userId = data.userId ?? data.clientId ?? null
+  return createAppointmentRecord({
+    ...data,
+    clientId: userId,
+    clientName: data.clientName ?? '',
+    clientPhone: data.clientPhone ?? data.phone ?? null,
+    email: data.email ?? null,
+  }, { isGuest: false, userId })
+}
+
+/**
+ * Create a new appointment for a GUEST (no account required).
+ *
+ * Stores: isGuest = true, userId = null, clientId = null, plus a random
+ * guestToken that identifies the guest so they can later re-upload a proof.
+ *
+ * @param {Object} data - includes clientName, clientPhone (normalized), email (optional), serviceId, serviceName, price, duration, date, time, payment
+ * @returns {Promise<string>} new document ID
+ */
+export async function createGuestAppointment(data) {
+  const guestToken = data.guestToken || generateGuestToken()
+  return createAppointmentRecord({
+    ...data,
+    clientId: null,
+    clientName: data.clientName,
+    clientPhone: data.clientPhone ?? data.phone ?? null,
+    email: data.email ?? null,
+  }, { isGuest: true, userId: null, guestToken })
+}
+
+/**
+ * Create a new appointment.
+ *
+ * Kept for backward compatibility (admin panel and legacy authenticated flows).
+ * Guests should use createGuestAppointment(); registered users createUserAppointment().
+ *
+ * @param {Object} data
+ * @param {Object|null} [data.payment] - Optional payment snapshot (see model below)
+ * @returns {Promise<string>} new document ID
+ */
+export async function createAppointment(data) {
+  return createAppointmentRecord(data, {})
 }
 
 /**
@@ -180,7 +260,11 @@ export async function updateAppointmentStatus(id, newStatus, extraData = {}) {
       const data = { id: snap.id, ...snap.data() }
       await createIncomeEntry(data)
       // Benefits: process completed visit (atomic visit count + reward check)
-      if (data.clientId) {
+      if (data.isGuest && data.clientPhone) {
+        // Guest visit: use the phone as a temporary loyalty identifier.
+        // The admin runs this transition, so it has permission to manage /clients.
+        await processGuestCompletedVisit(data.clientPhone, snap.id)
+      } else if (data.clientId) {
         await processCompletedVisit(data.clientId, snap.id)
       }
     }

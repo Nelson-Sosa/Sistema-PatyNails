@@ -3,6 +3,7 @@ import ProtectedRoute from '@/routes/ProtectedRoute'
 import AppLayout from '@/layouts/AppLayout'
 import LoginPage from '@/pages/Login/LoginPage'
 import RegisterPage from '@/pages/Register/RegisterPage'
+import BookingPage from '@/pages/Booking/BookingPage'
 import DashboardPage from '@/pages/Dashboard/DashboardPage'
 import UserDashboardPage from '@/pages/Dashboard/UserDashboardPage'
 import AppointmentsPage from '@/pages/Appointments/AppointmentsPage'
@@ -53,6 +54,10 @@ export const router = createBrowserRouter([
     element: <AppLayout />,
     children: [
       // Public routes inside layout
+      {
+        path: ROUTES.BOOKING,
+        element: <BookingPage />,
+      },
       {
         path: ROUTES.SERVICES,
         element: <ServicesPage />,
