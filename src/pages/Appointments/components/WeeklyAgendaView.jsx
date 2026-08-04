@@ -85,33 +85,6 @@ function getRowHeight() {
   return ROW_HEIGHT_BREAKPOINTS.base
 }
 
-/**
- * Build the vertical rows of a single day's grid from its configured blocks.
- * Each block contributes its aligned slots; pauses between blocks are collapsed
- * into a single "closed" row instead of generating empty slot rows.
- * @param {Array<{start: string, end: string}>} dayBlocks - sorted day blocks
- * @param {number} interval - slot interval in minutes
- * @returns {Array<{kind: 'slot'|'closed', startMin: number, endMin?: number, alt?: boolean}>}
- */
-function buildDayRows(dayBlocks, interval) {
-  const rows = []
-  let prevEnd = null
-  for (const block of dayBlocks) {
-    const s = toMinutes(block.start)
-    const e = toMinutes(block.end)
-    if (prevEnd !== null && s > prevEnd) {
-      rows.push({ kind: 'closed', startMin: prevEnd, endMin: s })
-    }
-    let alt = 0
-    for (let m = s; m < e; m += interval) {
-      rows.push({ kind: 'slot', startMin: m, alt: alt % 2 === 1 })
-      alt++
-    }
-    prevEnd = e
-  }
-  return rows
-}
-
 // ── Component ──────────────────────────────────────────────────────────────
 
 export default function WeeklyAgendaView() {
@@ -187,12 +160,14 @@ export default function WeeklyAgendaView() {
     return segs
   }, [businessSettings])
 
-  const gutterRows = useMemo(() => {
+  const gridRows = useMemo(() => {
     const rows = []
     for (const seg of segments) {
       if (seg.type === 'open') {
+        let alt = 0
         for (let m = seg.startMin; m < seg.endMin; m += slotInterval) {
-          rows.push({ kind: 'slot', startMin: m })
+          rows.push({ kind: 'slot', startMin: m, alt: alt % 2 === 1 })
+          alt++
         }
       } else {
         rows.push({ kind: 'closed', startMin: seg.startMin, endMin: seg.endMin })
@@ -398,7 +373,7 @@ export default function WeeklyAgendaView() {
                 className="sticky left-0 z-20 w-20 flex-shrink-0 bg-brand-card"
                 style={{ height: totalHeight }}
               >
-                {gutterRows.map((row, ri) => {
+                {gridRows.map((row, ri) => {
                   const top = (row.startMin - weekStartMin) * pxPerMinute
                   if (row.kind === 'slot') {
                     return (
@@ -427,18 +402,17 @@ export default function WeeklyAgendaView() {
                       style={{ top, height: (row.endMin - row.startMin) * pxPerMinute }}
                     >
                       <Lock className="h-2.5 w-2.5 shrink-0 text-brand-text-muted/60" />
-                    </div>
-                  )
-                })}
-              </div>
+                  </div>
+                )
+              })}
+            </div>
 
-              {/* Day columns */}
+              {/* Day columns — comparten la misma grilla continua (union de bloques) */}
               {weekDays.map((day, di) => {
                 const dayKey = format(day, 'yyyy-MM-dd')
                 const dayAppts = appointmentsByDay[dayKey] || []
                 const isToday = isSameDay(day, today)
                 const dayBlocks = businessSettings ? getDayBlocks(businessSettings, day) : []
-                const dayRows = buildDayRows(dayBlocks, slotInterval)
 
                 return (
                   <div
@@ -446,43 +420,30 @@ export default function WeeklyAgendaView() {
                     className="flex-1 relative border-r border-brand-border last:border-r-0 min-w-[100px] lg:min-w-[130px]"
                     style={{ height: totalHeight }}
                   >
-                    {/* Grilla del día — construida bloque por bloque. Los cierres
-                        entre bloques se resumen en una única fila informativa. */}
-                    {dayRows.length === 0 ? (
+                    {dayBlocks.length === 0 ? (
                       <div className="absolute inset-0 flex items-center justify-center bg-brand-bg/40">
                         <span className="text-[10px] lg:text-xs font-medium text-brand-text-muted">
                           Cerrado
                         </span>
                       </div>
                     ) : (
-                      dayRows.map((row, ri) => {
+                      gridRows.map((row, ri) => {
+                        if (row.kind === 'closed') return null
+                        const inBlock = isMinuteInBlocks(row.startMin, dayBlocks)
                         const top = (row.startMin - weekStartMin) * pxPerMinute
-                        if (row.kind === 'slot') {
-                          return (
-                            <div
-                              key={ri}
-                              onClick={() => handleCellClick(day, { start: minutesToTime(row.startMin), startMin: row.startMin })}
-                              className={cn(
-                                'absolute left-0 right-0 border-b border-brand-border transition-colors',
-                                'cursor-pointer hover:bg-emerald-500/5',
-                                row.alt && 'bg-brand-alt-row'
-                              )}
-                              style={{ top, height: rowHeight }}
-                            />
-                          )
-                        }
-                        const closedHeight = (row.endMin - row.startMin) * pxPerMinute
                         return (
                           <div
                             key={ri}
-                            className="absolute left-0 right-0 flex items-center justify-center gap-1.5 border-y border-brand-border bg-brand-bg/70"
-                            style={{ top, height: closedHeight }}
-                          >
-                            <Lock className="h-3 w-3 shrink-0 text-brand-text-muted/80" />
-                            <span className="truncate text-[9px] lg:text-[10px] font-medium text-brand-text-muted">
-                              Local cerrado · {minutesToTime(row.startMin)} a {minutesToTime(row.endMin)}
-                            </span>
-                          </div>
+                            onClick={inBlock ? () => handleCellClick(day, { start: minutesToTime(row.startMin), startMin: row.startMin }) : undefined}
+                            className={cn(
+                              'absolute left-0 right-0 border-b border-brand-border transition-colors',
+                              inBlock
+                                ? 'cursor-pointer hover:bg-emerald-500/5'
+                                : 'cursor-not-allowed bg-brand-bg/60',
+                              row.alt && inBlock && 'bg-brand-alt-row'
+                            )}
+                            style={{ top, height: rowHeight }}
+                          />
                         )
                       })
                     )}
@@ -583,6 +544,27 @@ export default function WeeklyAgendaView() {
                   </div>
                 )
               })}
+
+              {/* Períodos cerrados — un único separador visual a todo el ancho
+                  de la grilla (no se repite por columna) */}
+              {gridRows
+                .filter(row => row.kind === 'closed')
+                .map((row) => {
+                  const top = (row.startMin - weekStartMin) * pxPerMinute
+                  const height = (row.endMin - row.startMin) * pxPerMinute
+                  return (
+                    <div
+                      key={`closed-${row.startMin}`}
+                      className="absolute left-20 right-0 z-[5] pointer-events-none flex items-center justify-center gap-1.5 border-y border-brand-border bg-brand-bg/70"
+                      style={{ top, height }}
+                    >
+                      <Lock className="h-3 w-3 shrink-0 text-brand-text-muted/80" />
+                      <span className="truncate text-[9px] lg:text-[10px] font-medium text-brand-text-muted">
+                        Local cerrado · {minutesToTime(row.startMin)} a {minutesToTime(row.endMin)}
+                      </span>
+                    </div>
+                  )
+                })}
             </div>
             ) : (
               <div className="flex h-40 items-center justify-center">
