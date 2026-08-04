@@ -121,6 +121,34 @@ export default function AppointmentDrawer({ appointment, isOpen, onClose, onEdit
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
+          {/* Client info */}
+          <div className="rounded-xl border border-brand-border bg-brand-bg p-3">
+            <div className="flex items-center gap-2">
+              <UserRound className="h-4 w-4 text-brand-text-muted shrink-0" />
+              <p className="min-w-0 truncate text-sm font-medium text-brand-text">{appointment.clientName}</p>
+              {appointment.isGuest ? (
+                <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-500">
+                  <UserRound className="h-3 w-3" />
+                  Invitado
+                </span>
+              ) : (
+                <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-500">
+                  <UserCheck className="h-3 w-3" />
+                  Registrado
+                </span>
+              )}
+            </div>
+            {appointment.clientPhone && (
+              <p className="mt-2 flex items-center gap-1.5 text-sm">
+                <Phone className="h-4 w-4 text-brand-text-muted" />
+                <span className="font-semibold text-brand-text">{appointment.clientPhone}</span>
+              </p>
+            )}
+            {!appointment.clientPhone && (
+              <p className="mt-2 text-xs text-brand-text-muted">Sin teléfono registrado</p>
+            )}
+          </div>
+
           {/* Status selector */}
           <div>
             <label className="block text-xs font-medium text-brand-text-muted uppercase tracking-wider mb-1.5">
