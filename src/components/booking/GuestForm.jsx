@@ -1,7 +1,7 @@
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { UserRound, Phone, Mail } from 'lucide-react'
+import { UserRound, Phone } from 'lucide-react'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 
@@ -17,11 +17,6 @@ const guestSchema = z
       .trim()
       .min(1, 'El teléfono es obligatorio')
       .regex(/^[+]?[0-9()\s.-]+$/, 'Formato de teléfono inválido'),
-    email: z
-      .string()
-      .trim()
-      .optional()
-      .refine((v) => !v || (v.includes('@') && v.includes('.')), 'Ingresá un email válido'),
   })
   .superRefine((data, ctx) => {
     const digits = (data.phone || '').replace(/\D/g, '')
@@ -32,9 +27,9 @@ const guestSchema = z
 
 /**
  * GuestForm — datos mínimos para confirmar una reserva como invitado.
- * Campos obligatorios: nombre y teléfono. Email opcional.
+ * Campos obligatorios: nombre y teléfono.
  *
- * @param {{ loading: boolean, onSubmit: (values: {name: string, phone: string, email: string}) => void }} props
+ * @param {{ loading: boolean, onSubmit: (values: {name: string, phone: string}) => void }} props
  */
 export default function GuestForm({ loading = false, onSubmit, defaultValues = {} }) {
   const {
@@ -43,7 +38,7 @@ export default function GuestForm({ loading = false, onSubmit, defaultValues = {
     formState: { errors },
   } = useForm({
     resolver: zodResolver(guestSchema),
-    defaultValues: { name: '', phone: '', email: '', ...defaultValues },
+    defaultValues: { name: '', phone: '', ...defaultValues },
   })
 
   return (
@@ -67,17 +62,6 @@ export default function GuestForm({ loading = false, onSubmit, defaultValues = {
         leftIcon={<Phone className="h-4 w-4" />}
         error={errors.phone?.message}
         {...register('phone')}
-      />
-
-      <Input
-        label="Email (opcional)"
-        id="guest-email"
-        type="email"
-        placeholder="para@recibir.turnos"
-        autoComplete="email"
-        leftIcon={<Mail className="h-4 w-4" />}
-        error={errors.email?.message}
-        {...register('email')}
       />
 
       <Button
