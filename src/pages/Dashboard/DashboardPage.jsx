@@ -107,32 +107,32 @@ function DashboardPage() {
                   return (
                     <div
                       key={app.id}
-                      className="group flex items-center gap-3 rounded-xl border border-transparent bg-transparent p-3 transition-all duration-200 hover:bg-brand-pastel/30 hover:-translate-y-0.5 sm:gap-4 sm:p-4"
+                      className="group grid grid-cols-[auto_1fr_auto] gap-x-3 gap-y-2 rounded-xl border border-transparent bg-transparent p-3 transition-all duration-200 hover:bg-brand-pastel/30 hover:-translate-y-0.5 sm:flex sm:items-center sm:gap-4 sm:p-4"
                     >
                       {/* Time accent */}
-                      <div className="flex flex-col items-center gap-1">
+                      <div className="col-start-1 row-start-1 flex flex-col items-center gap-1 self-start">
                         <span className="text-sm font-semibold text-brand-text">{app.time}</span>
-                        <div className="h-6 w-0.5 rounded-full bg-brand-pastel" />
+                        <div className="hidden h-6 w-0.5 rounded-full bg-brand-pastel sm:block" />
                       </div>
 
                       {/* Avatar with initial */}
-                      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-brand-primary/10 text-sm font-semibold text-brand-primary">
+                      <div className="col-start-2 row-start-1 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-brand-primary/10 text-sm font-semibold text-brand-primary">
                         {initial}
                       </div>
 
                       {/* Info */}
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate font-medium text-brand-text">{app.clientName}</p>
-                        <p className="mt-0.5 truncate text-xs text-brand-text-muted">{app.serviceName}</p>
+                      <div className="col-start-2 row-start-2 min-w-0 flex-1">
+                        <p className="break-words font-medium text-brand-text sm:truncate">{app.clientName}</p>
+                        <p className="mt-0.5 break-words text-xs text-brand-text-muted sm:truncate">{app.serviceName}</p>
                       </div>
 
-                      {/* Price (hidden on small screens) */}
-                      <div className="hidden sm:block text-right">
+                      {/* Price */}
+                      <div className="col-start-3 row-start-2 text-right">
                         <p className="text-sm font-medium text-brand-text-muted">{formatCurrency(app.price)}</p>
                       </div>
 
                       {/* Status badge */}
-                      <Badge variant={cfg.variant} size="sm" className="shrink-0">{cfg.label}</Badge>
+                      <Badge variant={cfg.variant} size="sm" className="col-start-3 row-start-1 justify-self-end shrink-0">{cfg.label}</Badge>
                     </div>
                   )
                 })
@@ -196,9 +196,9 @@ function DashboardPage() {
                   const pct = Math.round((svc.count / totalDone) * 100)
                   return (
                     <div key={svc.name}>
-                      <div className="mb-1.5 flex items-center justify-between">
-                        <span className="text-sm font-medium text-brand-text">{svc.name}</span>
-                        <span className="text-xs text-brand-text-muted">{pct}% &middot; {svc.count} turnos</span>
+                      <div className="mb-1.5 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-0">
+                        <span className="min-w-0 break-words text-sm font-medium text-brand-text sm:break-normal">{svc.name}</span>
+                        <span className="shrink-0 self-end text-xs text-brand-text-muted sm:self-auto">{pct}% &middot; {svc.count} turnos</span>
                       </div>
                       <div className="h-2 overflow-hidden rounded-full bg-brand-pastel/30">
                         <div
