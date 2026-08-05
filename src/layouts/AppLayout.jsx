@@ -3,6 +3,8 @@ import { Outlet } from 'react-router-dom'
 import Sidebar from '@/components/layout/Sidebar'
 import Header from '@/components/layout/Header'
 import WhatsAppFloatingButton from '@/components/common/WhatsAppFloatingButton'
+import { useAuth } from '@/hooks/useAuth'
+import { USER_ROLES } from '@/constants/app'
 import { cn } from '@/utils/cn'
 
 /**
@@ -25,6 +27,8 @@ import { cn } from '@/utils/cn'
 function AppLayout() {
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [isMobileOpen, setIsMobileOpen] = useState(false)
+  const { role } = useAuth()
+  const isAdmin = role === USER_ROLES.ADMIN
 
   return (
     <div className="flex h-[100dvh] overflow-hidden bg-brand-bg">
@@ -60,8 +64,8 @@ function AppLayout() {
         </main>
       </div>
 
-      {/* Floating Action Button */}
-      <WhatsAppFloatingButton />
+      {/* Floating Action Button — solo en zonas públicas y del cliente, oculto en el Panel Administrador */}
+      {!isAdmin && <WhatsAppFloatingButton />}
     </div>
   )
 }
