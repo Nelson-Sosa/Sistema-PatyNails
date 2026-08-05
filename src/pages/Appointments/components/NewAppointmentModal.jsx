@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { X } from 'lucide-react'
 import { format } from 'date-fns'
 import { useForm, Controller } from 'react-hook-form'
@@ -7,6 +7,7 @@ import { z } from 'zod'
 import toast from 'react-hot-toast'
 import { useClients } from '@/hooks/useClients'
 import { useServices } from '@/hooks/useServices'
+import { useActiveCategories } from '@/hooks/useServiceCategories'
 import { useCreateAppointment, useUpdateAppointmentDetails } from '@/hooks/useAppointments'
 import { useAuth } from '@/context/AuthContext'
 import { checkAppointmentConflict } from '@/services/appointments/appointmentsService'
@@ -31,12 +32,22 @@ function NewAppointmentModal({ isOpen, onClose, initialDate, initialTime, appoin
   const { role } = useAuth()
   const { data: clients, isLoading: loadingClients } = useClients()
   const { data: services, isLoading: loadingServices } = useServices()
+  const { data: categories } = useActiveCategories()
   const { mutateAsync: createAppointment, isPending: isCreating } = useCreateAppointment()
   const { mutateAsync: updateAppointment, isPending: isUpdating } = useUpdateAppointmentDetails()
   const { settings: businessSettings } = useBusinessSettings()
   
   const isEditing = !!appointmentToEdit
   const isPending = isCreating || isUpdating
+
+  // Agrupar servicios por categoría para mejorar la visualización en select nativo
+  const groupedServices = useMemo(() => {
+    if (!services || !categories) return []
+    return categories.map(cat => ({
+      ...cat,
+      services: services.filter(s => s.categoryId === cat.id)
+    })).filter(cat => cat.services.length > 0)
+  }, [services, categories])
 
   const getEditDateStr = () => {
     if (!appointmentToEdit || !appointmentToEdit.date) return format(initialDate, 'yyyy-MM-dd')
@@ -220,12 +231,23 @@ function NewAppointmentModal({ isOpen, onClose, initialDate, initialTime, appoin
               {...register('serviceId')}
             >
               <option value="">Seleccionar servicio...</option>
-              {services?.map((s) => (
-                <option key={s.id} value={s.id}>{s.name} - {formatCurrency(s.price)}</option>
-              ))}
+              {groupedServices?.length > 0 ? (
+                groupedServices.map((cat) => (
+                  <optgroup key={cat.id} label={cat.name}>
+                    {cat.services.map((s) => (
+                      <option key={s.id} value={s.id}>{s.name} - {formatCurrency(s.price)}</option>
+                    ))}
+                  </optgroup>
+                ))
+              ) : (
+                services?.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name} - {formatCurrency(s.price)}</option>
+                ))
+              )}
             </select>
             {errors.serviceId && <p className="text-xs text-red-400">{errors.serviceId.message}</p>}
           </div>
+
 
           {/* Date Input */}
           <Input 
