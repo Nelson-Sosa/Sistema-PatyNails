@@ -606,6 +606,7 @@ export default function WeeklyAgendaView() {
         onStatusChange={(newStatus) => {
           if (selectedAppointment) {
             updateStatus({ id: selectedAppointment.id, status: newStatus })
+            setSelectedAppointment({ ...selectedAppointment, status: newStatus })
           }
         }}
       />
