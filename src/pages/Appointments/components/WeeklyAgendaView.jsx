@@ -504,12 +504,6 @@ export default function WeeklyAgendaView() {
                                   )}
                                 </span>
 
-                                {apt.clientPhone && (
-                                  <span className="truncate mt-px text-[8px] lg:text-[9px] text-slate-400 leading-none">
-                                    {apt.clientPhone}
-                                  </span>
-                                )}
-
                                 <div className="flex-1 min-h-0" />
 
                                 <div className="flex items-baseline gap-1">
