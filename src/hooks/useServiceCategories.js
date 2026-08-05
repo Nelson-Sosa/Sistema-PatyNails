@@ -6,23 +6,32 @@ import {
   createCategory,
   updateCategory,
   toggleCategoryActive,
+  subscribeCategories,
+  subscribeActiveCategories,
 } from '@/services/serviceCategories/serviceCategoriesService'
+import { createRealtimeQuery } from '@/lib/firestoreRealtime'
 
 const QUERY_KEY = 'serviceCategories'
 
+/**
+ * Fetch all service categories with realtime updates.
+ */
 export function useCategories() {
   return useQuery({
     queryKey: [QUERY_KEY],
-    queryFn: getCategories,
-    staleTime: 1000 * 60 * 30,
+    queryFn: createRealtimeQuery(subscribeCategories),
+    refetchOnMount: 'always',
   })
 }
 
+/**
+ * Fetch only active service categories with realtime updates.
+ */
 export function useActiveCategories() {
   return useQuery({
     queryKey: [QUERY_KEY, 'active'],
-    queryFn: getActiveCategories,
-    staleTime: 1000 * 60 * 30,
+    queryFn: createRealtimeQuery(subscribeActiveCategories),
+    refetchOnMount: 'always',
   })
 }
 

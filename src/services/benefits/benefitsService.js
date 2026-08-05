@@ -1,6 +1,6 @@
 import {
   doc, getDoc, updateDoc, addDoc, collection, query, where,
-  getDocs, orderBy, limit, runTransaction, Timestamp, serverTimestamp,
+  getDocs, orderBy, limit, runTransaction, onSnapshot, Timestamp, serverTimestamp,
 } from 'firebase/firestore'
 import { db } from '@/firebase/config'
 import { COLLECTIONS, BENEFITS } from '@/constants/app'
@@ -188,6 +188,50 @@ export async function getLastBenefitsEvent(clientId) {
   const snap = await getDocs(q)
   if (snap.empty) return null
   return { id: snap.docs[0].id, ...snap.docs[0].data() }
+}
+
+/**
+ * Subscribe to the benefits history for a client in real time.
+ * Updates instantly when a visit is completed or a reward is redeemed.
+ *
+ * @param {string} clientId
+ * @param {(data: Array) => void} onNext
+ * @param {(error: Error) => void} [onError]
+ * @returns {() => void} unsubscribe
+ */
+export function subscribeBenefitsHistory(clientId, onNext, onError) {
+  if (!clientId) {
+    onNext([])
+    return () => {}
+  }
+  const ref = collection(db, COLLECTIONS.LOYALTY_HISTORY)
+  const q = query(ref, where('clientId', '==', clientId), orderBy('earnedAt', 'desc'))
+  return onSnapshot(
+    q,
+    (snap) => onNext(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+    onError
+  )
+}
+
+/**
+ * Subscribe to the most recent benefits event for a client in real time.
+ * Useful for showing the current reward status badge on the client profile.
+ *
+ * @param {string} clientId
+ * @param {(data: Object|null) => void} onNext
+ * @param {(error: Error) => void} [onError]
+ * @returns {() => void} unsubscribe
+ */
+export function subscribeLastBenefitsEvent(clientId, onNext, onError) {
+  if (!clientId) {
+    onNext(null)
+    return () => {}
+  }
+  const ref = collection(db, COLLECTIONS.LOYALTY_HISTORY)
+  const q = query(ref, where('clientId', '==', clientId), orderBy('earnedAt', 'desc'), limit(1))
+  return onSnapshot(q, (snap) => {
+    onNext(snap.empty ? null : { id: snap.docs[0].id, ...snap.docs[0].data() })
+  }, onError)
 }
 
 // ─── Guest Loyalty (Phone-Based) ─────────────────────────────────────────────

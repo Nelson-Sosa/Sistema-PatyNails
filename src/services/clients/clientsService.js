@@ -128,6 +128,57 @@ export function subscribeClients(onNext, onError) {
 }
 
 /**
+ * Subscribe to a single client by ID in real time.
+ * Checks the users collection first (registered users), then falls back to
+ * the manual clients collection. Emits null if the document doesn't exist.
+ *
+ * @param {string} id - Firebase UID (for registered users) or Firestore document ID (for manual clients)
+ * @param {(data: Object|null) => void} onNext
+ * @param {(error: Error) => void} [onError]
+ * @returns {() => void} unsubscribe
+ */
+export function subscribeClientById(id, onNext, onError) {
+  const userRef = doc(db, COLLECTIONS.USERS, id)
+  const clientRef = doc(db, COLLECTIONS.CLIENTS, id)
+
+  let unsubUser = null
+  let unsubClient = null
+  let isUser = null // null = not yet determined
+
+  // Start by listening to the user document
+  unsubUser = onSnapshot(userRef, (userSnap) => {
+    if (userSnap.exists() && userSnap.data().role === 'user') {
+      // This ID belongs to a registered user
+      isUser = true
+      // Clean up client listener if it was started (shouldn't happen, but guard)
+      if (unsubClient) {
+        unsubClient()
+        unsubClient = null
+      }
+      onNext(formatRegisteredUser(userSnap))
+    } else if (isUser === null) {
+      // Not a registered user — fall back to the manual clients collection
+      isUser = false
+      if (unsubUser) {
+        unsubUser()
+        unsubUser = null
+      }
+      unsubClient = onSnapshot(clientRef, (clientSnap) => {
+        onNext(clientSnap.exists() ? formatManualClient(clientSnap) : null)
+      }, onError)
+    } else {
+      // Was a registered user and now the document is gone
+      onNext(null)
+    }
+  }, onError)
+
+  return () => {
+    if (unsubUser) unsubUser()
+    if (unsubClient) unsubClient()
+  }
+}
+
+/**
  * Get a single client by ID (checks users first, then clients).
  * @param {string} id
  * @returns {Promise<Object|null>}

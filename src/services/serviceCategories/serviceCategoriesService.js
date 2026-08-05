@@ -7,6 +7,8 @@ import {
   updateDoc,
   query,
   orderBy,
+  where,
+  onSnapshot,
   serverTimestamp,
 } from 'firebase/firestore'
 import { db } from '@/firebase/config'
@@ -29,6 +31,35 @@ export async function getCategoryById(id) {
   const ref = doc(db, COLLECTIONS.SERVICE_CATEGORIES, id)
   const snap = await getDoc(ref)
   return snap.exists() ? { id: snap.id, ...snap.data() } : null
+}
+
+/**
+ * Subscribe to all service categories ordered by 'order' ascending.
+ * Fires on every Firestore change (add / update / delete).
+ * @param {(data: Array) => void} onNext
+ * @param {(error: Error) => void} [onError]
+ * @returns {() => void} unsubscribe
+ */
+export function subscribeCategories(onNext, onError) {
+  const q = query(categoriesRef(), orderBy('order', 'asc'))
+  return onSnapshot(
+    q,
+    (snap) => onNext(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+    onError
+  )
+}
+
+/**
+ * Subscribe to active service categories (active !== false).
+ * @param {(data: Array) => void} onNext
+ * @param {(error: Error) => void} [onError]
+ * @returns {() => void} unsubscribe
+ */
+export function subscribeActiveCategories(onNext, onError) {
+  // Filter locally (same as getActiveCategories) to avoid requiring a composite index
+  return subscribeCategories((all) => {
+    onNext(all.filter((c) => c.active !== false))
+  }, onError)
 }
 
 export async function createCategory(data) {

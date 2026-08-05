@@ -8,6 +8,7 @@ import {
   orderBy,
   limit,
   where,
+  onSnapshot,
   serverTimestamp,
 } from 'firebase/firestore'
 import { db } from '@/firebase/config'
@@ -46,6 +47,41 @@ export async function getUnreadCount() {
   )
   const snap = await getDocs(q)
   return snap.size
+}
+
+/**
+ * Subscribe to the most recent notifications in real time.
+ * @param {number} max - Maximum number of notifications to return (default 50)
+ * @param {(data: Array) => void} onNext
+ * @param {(error: Error) => void} [onError]
+ * @returns {() => void} unsubscribe
+ */
+export function subscribeRecentNotifications(max = 50, onNext, onError) {
+  const q = query(
+    notificationsRef(),
+    orderBy('createdAt', 'desc'),
+    limit(max)
+  )
+  return onSnapshot(
+    q,
+    (snap) => onNext(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+    onError
+  )
+}
+
+/**
+ * Subscribe to the unread notification count in real time.
+ * Updates the badge instantly when new notifications arrive or are marked read.
+ * @param {(count: number) => void} onNext
+ * @param {(error: Error) => void} [onError]
+ * @returns {() => void} unsubscribe
+ */
+export function subscribeUnreadCount(onNext, onError) {
+  const q = query(
+    notificationsRef(),
+    where('read', '==', false)
+  )
+  return onSnapshot(q, (snap) => onNext(snap.size), onError)
 }
 
 export async function markAsRead(id) {

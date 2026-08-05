@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   subscribeClients,
   getClientById,
+  subscribeClientById,
   createClient,
   updateClient,
 } from '@/services/clients/clientsService'
@@ -22,14 +23,17 @@ export function useClients() {
 }
 
 /**
- * Fetch a single client by ID.
+ * Fetch a single client by ID with realtime updates.
  * @param {string} clientId
  */
 export function useClient(clientId) {
   return useQuery({
     queryKey: [QUERY_KEY, clientId],
-    queryFn: () => getClientById(clientId),
+    queryFn: createRealtimeQuery((onNext, onError) =>
+      subscribeClientById(clientId, onNext, onError)
+    ),
     enabled: !!clientId,
+    refetchOnMount: 'always',
   })
 }
 

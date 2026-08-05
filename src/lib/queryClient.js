@@ -27,9 +27,16 @@ export const queryClient = new QueryClient({
   }),
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60 * 5,   // 5 minutes
-      gcTime: 1000 * 60 * 10,     // 10 minutes
+      // staleTime 0: every query is considered stale immediately, so React Query
+      // always re-runs the queryFn on mount. This is essential for realtime queries
+      // built with createRealtimeQuery — it ensures the Firestore onSnapshot listener
+      // is (re-)started whenever a component mounts, instead of serving stale cache
+      // data from a previous session or tab.
+      staleTime: 0,
+      gcTime: 1000 * 60 * 10,     // 10 minutes — keep unused cache for quick back-nav
       retry: 2,
+      // Keep false: realtime listeners push updates to the cache automatically,
+      // so a window-focus refetch would only create a redundant duplicate listener.
       refetchOnWindowFocus: false,
     },
   },

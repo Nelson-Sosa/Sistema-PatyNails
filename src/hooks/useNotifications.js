@@ -4,25 +4,36 @@ import {
   getUnreadCount,
   markAsRead,
   markAllAsRead,
+  subscribeRecentNotifications,
+  subscribeUnreadCount,
 } from '@/services/notifications/notificationsService'
+import { createRealtimeQuery } from '@/lib/firestoreRealtime'
 
 const QUERY_KEY = 'notifications'
 
+/**
+ * Fetch the 50 most recent notifications with realtime updates.
+ * New notifications appear instantly without any polling delay.
+ */
 export function useNotifications() {
   return useQuery({
     queryKey: [QUERY_KEY, 'recent'],
-    queryFn: () => getRecentNotifications(50),
-    staleTime: 1000 * 30,
-    refetchInterval: 1000 * 60,
+    queryFn: createRealtimeQuery((onNext, onError) =>
+      subscribeRecentNotifications(50, onNext, onError)
+    ),
+    refetchOnMount: 'always',
   })
 }
 
+/**
+ * Subscribe to the unread notification count in real time.
+ * The badge updates instantly when a notification is created or marked as read.
+ */
 export function useUnreadCount() {
   return useQuery({
     queryKey: [QUERY_KEY, 'unreadCount'],
-    queryFn: getUnreadCount,
-    staleTime: 1000 * 30,
-    refetchInterval: 1000 * 60,
+    queryFn: createRealtimeQuery(subscribeUnreadCount),
+    refetchOnMount: 'always',
   })
 }
 

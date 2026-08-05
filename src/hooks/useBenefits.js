@@ -3,6 +3,8 @@ import {
   getBenefitsHistory,
   getLastBenefitsEvent,
   redeemDiscount,
+  subscribeBenefitsHistory,
+  subscribeLastBenefitsEvent,
 } from '@/services/benefits/benefitsService'
 import { subscribeBenefitsSettings } from '@/services/settings/settingsService'
 import { createRealtimeQuery } from '@/lib/firestoreRealtime'
@@ -10,7 +12,7 @@ import { createRealtimeQuery } from '@/lib/firestoreRealtime'
 const BENEFITS_KEY = 'benefits'
 
 /**
- * Fetch the salon's benefits program settings.
+ * Fetch the salon's benefits program settings in real time.
  */
 export function useBenefitsSettings() {
   return useQuery({
@@ -21,26 +23,33 @@ export function useBenefitsSettings() {
 }
 
 /**
- * Fetch benefits/reward history for a specific client.
+ * Fetch benefits/reward history for a specific client in real time.
+ * Updates instantly when a visit is completed or a reward is redeemed.
  * @param {string} clientId
  */
 export function useBenefitsHistory(clientId) {
   return useQuery({
     queryKey: [BENEFITS_KEY, 'history', clientId],
-    queryFn: () => getBenefitsHistory(clientId),
+    queryFn: createRealtimeQuery((onNext, onError) =>
+      subscribeBenefitsHistory(clientId, onNext, onError)
+    ),
     enabled: !!clientId,
+    refetchOnMount: 'always',
   })
 }
 
 /**
- * Fetch the most recent benefits event for a client.
+ * Fetch the most recent benefits event for a client in real time.
  * @param {string} clientId
  */
 export function useLastBenefitsEvent(clientId) {
   return useQuery({
     queryKey: [BENEFITS_KEY, 'lastEvent', clientId],
-    queryFn: () => getLastBenefitsEvent(clientId),
+    queryFn: createRealtimeQuery((onNext, onError) =>
+      subscribeLastBenefitsEvent(clientId, onNext, onError)
+    ),
     enabled: !!clientId,
+    refetchOnMount: 'always',
   })
 }
 
