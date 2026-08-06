@@ -10,6 +10,7 @@ import {
   logout as logoutService,
   loadUserProfile,
 } from '@/services/auth/authService'
+import { queryClient } from '@/lib/queryClient'
 
 // ─── Context Definition ───────────────────────────────────────────────────────
 
@@ -51,93 +52,85 @@ export function AuthProvider({ children }) {
   const [loading, setLoading]         = useState(true)
   const [loadingRole, setLoadingRole] = useState(true)
 
-  // Track if the initial auth check is done to avoid double-loading on login
-  const initialLoadDone = useRef(false)
+  // Guard against stale async completions when the session changes between
+  // users. `profileRequestUid` holds the UID whose profile is currently being
+  // applied; a result that no longer matches is discarded.
+  const googleRedirectChecked = useRef(false)
+  const profileRequestUid = useRef(null)
 
   // ─── Load Firestore profile ─────────────────────────────────────────────────
   /**
    * Reads the Firestore profile for a Firebase user.
    * This is READ-ONLY — it never writes to Firestore.
-   * Called both from onAuthStateChanged (session resume) and from login actions.
+   * Re-loads the profile every time the authenticated user changes, so the UI
+   * always reflects the current session instead of the previous user's data.
    */
   const loadProfile = useCallback(async (firebaseUser) => {
-    console.log('[AUDIT TEMP AuthContext] loadProfile — INICIO. firebaseUser UID:', firebaseUser?.uid || null)
-    if (!firebaseUser) {
-      console.log('[AUDIT TEMP AuthContext] loadProfile — firebaseUser is null, limpiando perfil')
+    const uid = firebaseUser?.uid ?? null
+    profileRequestUid.current = uid
+
+    if (!uid) {
       setUserProfile(null)
-      console.log('[AUDIT TEMP AuthContext] Estado: role=null, loadingRole=false')
       setLoadingRole(false)
       return
     }
 
     setLoadingRole(true)
-    console.log('[AUDIT TEMP AuthContext] loadProfile — Estado: loadingRole=true')
     try {
-      const profile = await loadUserProfile(firebaseUser.uid)
-      console.log('[AUDIT TEMP AuthContext] loadProfile — Perfil obtenido de users/{uid}:', profile ? 'EXISTE' : 'NO EXISTE')
-      if (profile) {
-        console.log(`[AUDIT TEMP AuthContext] loadProfile — role cargado: ${profile.role}`)
-      }
+      const profile = await loadUserProfile(uid)
+      // Discard if a newer/loughed-in session has already requested another user.
+      if (profileRequestUid.current !== uid) return
       setUserProfile(profile)
     } catch (err) {
+      if (profileRequestUid.current !== uid) return
       // Firestore permission error or network issue.
       // Fall back to null — the UI will treat this as role: 'user' (safe default).
-      console.error('[AUDIT AuthContext] loadProfile — ERROR:', {
+      console.error('[AuthContext] loadProfile — ERROR:', {
         name: err.name,
         message: err.message,
         code: err.code,
-        stack: err.stack,
       })
       setUserProfile(null)
     } finally {
-      setLoadingRole(false)
-      console.log('[AUDIT TEMP AuthContext] loadProfile — FINALIZADO. Estado: loadingRole=false')
+      if (profileRequestUid.current === uid) setLoadingRole(false)
     }
   }, [])
 
   // ─── Auth state listener ────────────────────────────────────────────────────
   useEffect(() => {
-    console.log('[AUDIT TEMP AuthContext] Registrando onAuthStateChanged listener')
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      console.log('[AUDIT TEMP AuthContext] onAuthStateChanged — DISPARADO. Estado AuthContext: user UID:', firebaseUser?.uid || null)
-      
+      // Update the current user synchronously so the UI reacts immediately.
       setUser(firebaseUser)
 
-      if (!initialLoadDone.current) {
-        // First mount: handle pending Google redirect result (if any)
-        // and load the profile for a returning session.
-        if (firebaseUser) {
-          try {
-            const redirectResult = await handleGoogleRedirect()
-            if (redirectResult) {
-              console.log('[AUDIT AuthContext] Redirect Google login completado, UID:', redirectResult.user?.uid)
-            }
-          } catch (err) {
-            console.error('[AUDIT AuthContext] handleGoogleRedirect — ERROR:', {
-              name: err.name,
-              message: err.message,
-              code: err.code,
-              stack: err.stack,
-            })
-          }
+      // Consume a pending Google redirect result exactly once per provider mount.
+      if (!googleRedirectChecked.current) {
+        googleRedirectChecked.current = true
+        try {
+          await handleGoogleRedirect()
+        } catch (err) {
+          console.error('[auth] handleGoogleRedirect failed:', {
+            name: err.name,
+            message: err.message,
+            code: err.code,
+          })
         }
-        console.log('[AUDIT TEMP AuthContext] onAuthStateChanged — Primera carga, llamando loadProfile')
-        await loadProfile(firebaseUser)
-        initialLoadDone.current = true
-        console.log('[AUDIT TEMP AuthContext] onAuthStateChanged — initialLoadDone marcado como true')
-      } else {
-        // If not initial load, still need to load profile if user changed (e.g. login)
-        // Actually login actions call loadProfile manually, so we skip it here to avoid race conditions.
+      }
+
+      if (!firebaseUser) {
+        // Session ended (logout) — fully clear the previous session's state.
+        profileRequestUid.current = null
+        setUserProfile(null)
+        setLoadingRole(false)
+        setLoading(false)
+        return
       }
 
       setLoading(false)
-      console.log('[AUDIT TEMP AuthContext] onAuthStateChanged — FINALIZADO. Estado de AuthContext: loading=false, isAuthenticated:', !!firebaseUser)
+      // Re-fetch the profile for the (possibly different) signed-in user.
+      await loadProfile(firebaseUser)
     })
 
-    return () => {
-      console.log('[AUDIT AuthContext] onAuthStateChanged — UNSUBSCRIBE')
-      unsubscribe()
-    }
+    return () => unsubscribe()
   }, [loadProfile])
 
   // ─── Auth Actions ───────────────────────────────────────────────────────────
@@ -153,21 +146,6 @@ export function AuthProvider({ children }) {
     return credential
   }, [loadProfile])
 
-  /**
-   * Google login (redirect-based).
-   * Flow: signInWithRedirect → page navigates to Google → redirect back →
-   *       onAuthStateChanged fires → handleGoogleRedirect → ensureUserDoc → loadProfile
-   *
-   * Note: signInWithRedirect causes a full-page redirect to Google's OAuth page.
-   * Code after the `await loginWithGoogle()` call will NOT execute in the same
-   * session. The redirect result is handled in the onAuthStateChanged listener
-   * on the redirected page.
-   */
-  const loginGoogle = useCallback(async () => {
-    console.log('[AUDIT TEMP AuthContext] loginGoogle — INICIO')
-    await loginWithGoogle()
-  }, [])
-
   const register = useCallback(async (email, password, displayName) => {
     const credential = await registerWithEmail(email, password, displayName)
     await loadProfile(credential.user)
@@ -178,11 +156,18 @@ export function AuthProvider({ children }) {
     await resetPassword(email)
   }, [])
 
+  /**
+   * Sign out.
+   * Clears every user-related piece of state AND the React Query cache so the
+   * next session never renders data/dashboards from the previous user.
+   */
   const logout = useCallback(async () => {
     await logoutService()
+    profileRequestUid.current = null
     setUser(null)
     setUserProfile(null)
-    initialLoadDone.current = false
+    setLoadingRole(false)
+    queryClient.clear()
   }, [])
 
   // ─── Context Value ──────────────────────────────────────────────────────────
@@ -197,7 +182,7 @@ export function AuthProvider({ children }) {
     loading,
     isAuthenticated: !!user,
     login,
-    loginWithGoogle: loginGoogle,
+    loginWithGoogle,
     register,
     sendPasswordReset,
     logout,

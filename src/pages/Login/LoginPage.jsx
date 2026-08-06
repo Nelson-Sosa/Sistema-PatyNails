@@ -8,7 +8,7 @@ import { Mail, Lock, Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { loginSchema } from '@/schemas/authSchemas'
 import { ROUTES } from '@/routes/routes'
-import { APP_NAME } from '@/constants/app'
+import { APP_NAME, USER_ROLES } from '@/constants/app'
 import LogoSrc from '@/assets/PatyNailsLogo.jpg'
 import { usePageTitle } from '@/hooks/usePageTitle'
 import { usePendingAction } from '@/hooks/usePendingAction'
@@ -26,42 +26,61 @@ import Input from '@/components/ui/Input'
  * - Redirects to intended page after login (using router state.from)
  * - Loading states on both login methods
  */
+
+/** Routes restricted to administrators only — used to avoid sending clients there. */
+const ADMIN_ONLY_ROUTES = new Set([
+  ROUTES.DASHBOARD,
+  ROUTES.CLIENTS,
+  ROUTES.ADMIN_WORKS,
+  ROUTES.SETTINGS,
+  ROUTES.REPORTS,
+])
+
 function LoginPage() {
   usePageTitle('Iniciar sesión', false)
 
-  const { login, loginWithGoogle, isAuthenticated, loading } = useAuth()
+  const { login, loginWithGoogle, isAuthenticated, loading, role, loadingRole } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [showPassword, setShowPassword] = useState(false)
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
   const { getPendingAction, clearPendingAction } = usePendingAction()
 
-  // Redirect to the page the user was trying to access, or services (public catalog)
-  const from = location.state?.from?.pathname || ROUTES.SERVICES
+  // Route the user was trying to reach before hitting /login (if any)
+  const from = location.state?.from?.pathname
+
+  // Resolve where to go after login. Never land on the previous user's panel:
+  // a client must not reach admin-only routes, and an admin must not land on
+  // the client home (/my-dashboard) left over from the previous session.
+  const resolveDestination = () => {
+    const pendingAction = getPendingAction()
+    if (pendingAction && pendingAction.type === 'BOOK_SERVICE') {
+      clearPendingAction()
+      return {
+        path: ROUTES.APPOINTMENTS,
+        state: { selectedServiceId: pendingAction.payload?.serviceId },
+      }
+    }
+
+    const isAdmin = role === USER_ROLES.ADMIN
+    if (from && (isAdmin ? from !== ROUTES.USER_DASHBOARD : !ADMIN_ONLY_ROUTES.has(from))) {
+      return { path: from }
+    }
+    return { path: isAdmin ? ROUTES.DASHBOARD : ROUTES.USER_DASHBOARD }
+  }
 
   // Auto-redirect if already authenticated (covers Google sign-in redirect return)
   useEffect(() => {
-    if (!loading && isAuthenticated) {
-      navigate(from, { replace: true })
+    if (!loading && !loadingRole && isAuthenticated) {
+      const dest = resolveDestination()
+      navigate(dest.path, { replace: true, state: dest.state })
     }
-  }, [loading, isAuthenticated, navigate, from])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, loadingRole, isAuthenticated, role, navigate])
 
   const handlePostLogin = () => {
-    console.log('[AUDIT TEMP LoginPage] handlePostLogin — INICIO. navigate() hacia:', from)
-    const pendingAction = getPendingAction()
-    if (pendingAction) {
-      if (pendingAction.type === 'BOOK_SERVICE') {
-        clearPendingAction()
-        console.log('[AUDIT TEMP LoginPage] navigate() hacia APPOINTMENTS con pendingAction')
-        navigate(ROUTES.APPOINTMENTS, { 
-          state: { selectedServiceId: pendingAction.payload?.serviceId },
-          replace: true 
-        })
-        return
-      }
-    }
-    console.log('[AUDIT TEMP LoginPage] navigate() hacia:', from)
-    navigate(from, { replace: true })
+    const dest = resolveDestination()
+    navigate(dest.path, { replace: true, state: dest.state })
   }
 
   const {
