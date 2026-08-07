@@ -43,8 +43,8 @@ function ClientsPage() {
       {/* ── Header ──────────────────────────────────────────────────────────── */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Directorio de Clientes</h1>
-          <p className="mt-1 text-sm text-slate-400">
+          <h1 className="text-2xl font-bold text-brand-text">Directorio de Clientes</h1>
+          <p className="mt-1 text-sm text-brand-text-muted">
             Gestioná tu base de clientes y su historial.
           </p>
         </div>
@@ -84,9 +84,9 @@ function ClientsPage() {
             ))}
           </div>
         ) : (
-          <div className="flex h-64 flex-col items-center justify-center rounded-xl border border-dashed border-slate-700 bg-slate-900/50">
-            <Users className="mb-3 h-10 w-10 text-slate-600" />
-            <p className="text-lg font-medium text-slate-300">No se encontraron clientes</p>
+          <div className="flex h-64 flex-col items-center justify-center rounded-xl border border-dashed border-brand-border bg-brand-card/50">
+            <Users className="mb-3 h-10 w-10 text-brand-text-muted" />
+            <p className="text-lg font-medium text-brand-text-muted">No se encontraron clientes</p>
           </div>
         )}
       </div>
