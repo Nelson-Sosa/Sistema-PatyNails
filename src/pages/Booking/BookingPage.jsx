@@ -551,6 +551,17 @@ function BookingPage() {
               </Button>
             )}
           </div>
+
+          {paymentEnabled && (
+            <div className="mt-6 w-full max-w-sm rounded-xl border border-brand-border bg-brand-card p-4 text-left">
+              <p className="text-xs text-brand-text-muted leading-relaxed">
+                💜 <span className="font-semibold text-brand-text">Importante:</span>{' '}
+                Si necesitás cancelar tu turno, te pedimos avisarnos con anticipación. En caso de
+                avisar sobre la hora o no asistir, la seña no será reembolsable. ¡Gracias por tu
+                comprensión!
+              </p>
+            </div>
+          )}
         </div>
       )}
 
