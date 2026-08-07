@@ -342,14 +342,21 @@ export function calculateAvailableSlots(dayAppointments, serviceDuration, busine
       const slotStart = min
       const slotEnd = min + serviceDuration
 
-      // Validate 2-hour margin for today
+      // Validate 1-hour margin for today
       if (isToday) {
         // Slot date/time object for comparison
         const slotDate = new Date(now)
         slotDate.setHours(Math.floor(slotStart / 60), slotStart % 60, 0, 0)
 
-        const minAllowedTime = new Date(now.getTime() + 2 * 60 * 60 * 1000)
-        if (slotDate < minAllowedTime) {
+        if (slotDate <= now) {
+          continue // Skip this slot, already passed
+        }
+
+        const minAllowedTime = new Date(now.getTime() + 1 * 60 * 60 * 1000)
+        const blockEndDate = new Date(now)
+        blockEndDate.setHours(Math.floor(endMinutes / 60), endMinutes % 60, 0, 0)
+
+        if (slotDate < minAllowedTime && minAllowedTime < blockEndDate) {
           continue // Skip this slot, too soon
         }
       }
