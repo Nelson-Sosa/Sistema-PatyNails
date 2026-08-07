@@ -4,7 +4,7 @@ import { useAvailability } from '@/hooks/useAvailability'
 import WeekNavigator from './WeekNavigator'
 import AvailabilityDayCard from './AvailabilityDayCard'
 import AvailableTimesGrid from './AvailableTimesGrid'
-import { Clock } from 'lucide-react'
+import { Clock, Info } from 'lucide-react'
 
 // Skeleton component for loading state
 function CalendarSkeleton() {
@@ -104,6 +104,14 @@ export default function WeeklyAvailabilityCalendar({
         onNextWeek={nextWeek}
         canGoPrevWeek={canGoPrevWeek}
       />
+
+      {/* Same-day booking notice */}
+      <div className="flex items-start gap-2 rounded-xl border border-brand-primary/20 bg-brand-pastel/40 px-3 py-2.5 mb-3">
+        <Info className="h-4 w-4 text-brand-primary shrink-0 mt-0.5" />
+        <p className="text-xs text-brand-text">
+          Los turnos para hoy deben agendarse con al menos <span className="font-semibold">1 hora de anticipación</span>.
+        </p>
+      </div>
 
       {/* Horizontal scroll for days */}
       <div className="relative -mx-4 sm:mx-0">
