@@ -70,7 +70,7 @@ export default function LoyaltyAdminPanel() {
           <Trophy className="h-4 w-4 text-brand-primary" />
         </span>
         <div>
-          <h2 className="text-base font-semibold text-brand-text">Programa de Fidelización</h2>
+          <h2 className="text-base font-semibold text-brand-text">Programa de Beneficios</h2>
           <p className="text-xs text-brand-text-muted">
             Cada {condition} {unit} → {rewardLabel}
           </p>

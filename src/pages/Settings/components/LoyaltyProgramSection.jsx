@@ -23,7 +23,7 @@ import toast from 'react-hot-toast'
  * LoyaltyProgramSection
  *
  * Admin form for the fully configurable loyalty program
- * (Configuración → Programa de Fidelización).
+ * (Configuración → Programa de Beneficios).
  *
  * Lets the admin define, without touching code:
  * - Enable/disable the program
@@ -85,7 +85,7 @@ export default function LoyaltyProgramSection() {
   const handleSave = async () => {
     try {
       await saveSettings(form)
-      toast.success('Programa de fidelización guardado')
+      toast.success('Programa de beneficios guardado')
     } catch {
       toast.error('No se pudo guardar la configuración')
     }
@@ -111,7 +111,7 @@ export default function LoyaltyProgramSection() {
       {/* ── Estado del programa ─────────────────────────────────────────── */}
       <div className="flex items-center justify-between gap-4 rounded-xl border border-brand-border bg-brand-card p-4">
         <div>
-          <p className="text-sm font-semibold text-brand-text">Programa de fidelización</p>
+          <p className="text-sm font-semibold text-brand-text">Programa de beneficios</p>
           <p className="mt-0.5 text-xs text-brand-text-muted">
             {form.enabled
               ? 'Activado: los clientes acumulan y reciben recompensas.'

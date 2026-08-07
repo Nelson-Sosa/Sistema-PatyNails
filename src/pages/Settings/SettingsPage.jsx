@@ -56,7 +56,7 @@ function SettingsPage() {
             <Gift className="h-4 w-4 text-brand-primary" />
           </div>
           <div>
-            <h2 className="text-base font-semibold text-brand-text">Programa de Fidelización</h2>
+            <h2 className="text-base font-semibold text-brand-text">Programa de Beneficios</h2>
             <p className="text-xs text-brand-text-muted">Configurá el programa de recompensas por fidelidad</p>
           </div>
         </div>
