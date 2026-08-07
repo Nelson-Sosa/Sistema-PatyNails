@@ -1,11 +1,37 @@
 import { doc, getDoc, setDoc, updateDoc, onSnapshot, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/firebase/config'
-import { COLLECTIONS, BENEFITS } from '@/constants/app'
+import { COLLECTIONS, BENEFITS, LOYALTY } from '@/constants/app'
+import { getRewardLabel } from '@/utils/loyalty'
 import { toMinutes, minutesToTime, WEEK_DAY_KEYS } from '@/services/scheduleService'
 
 const SETTINGS_DOC_ID = 'salon'
 const PAYMENTS_DOC_ID = 'payments'
 const BUSINESS_DOC_ID = 'business'
+
+/**
+ * Default loyalty program configuration.
+ * The normalized shape exposed by `mapBenefitsSettings` always includes both the
+ * new configurable fields (accumulation, condition, benefit, repeat, validity)
+ * and legacy aliases (rewardEveryVisits, rewardIncrement, rewardType,
+ * rewardDescription) so existing consumers keep working unchanged.
+ */
+export const DEFAULT_LOYALTY_PROGRAM = {
+  enabled: true,
+  accumulation: LOYALTY.ACCUMULATION.VISITS,
+  condition: LOYALTY.DEFAULT_CONDITION,
+  benefit: {
+    type: LOYALTY.BENEFIT.DISCOUNT,
+    discountPercent: LOYALTY.DEFAULT_DISCOUNT_PERCENT,
+    freeServiceId: LOYALTY.FREE_SERVICE_ANY,
+    freeServiceName: '',
+  },
+  repeat: false,
+  validity: {
+    enabled: false,
+    days: LOYALTY.DEFAULT_VALIDITY_DAYS,
+  },
+  showProgress: true,
+}
 
 function settingsRef() {
   return doc(db, COLLECTIONS.SETTINGS, SETTINGS_DOC_ID)
@@ -28,13 +54,7 @@ export async function getSettings() {
 export async function getBenefitsSettings() {
   const snap = await getDoc(settingsRef())
   if (!snap.exists()) {
-    return {
-      enabled: true,
-      rewardEveryVisits: BENEFITS.DEFAULT_REWARD_EVERY_VISITS,
-      rewardType: BENEFITS.REWARD_TYPE,
-      rewardDescription: BENEFITS.REWARD_DESCRIPTION,
-      showProgress: true,
-    }
+    return mapBenefitsSettings({ loyaltyProgram: DEFAULT_LOYALTY_PROGRAM })
   }
 
   return mapBenefitsSettings(snap.data())
@@ -42,17 +62,64 @@ export async function getBenefitsSettings() {
 
 /**
  * Map the settings document to the benefits settings shape (with defaults).
+ *
+ * Reads the configurable loyalty program (accumulation, condition, benefit,
+ * repeat, validity) and falls back to the legacy flat fields
+ * (rewardEveryVisits / rewardType / rewardDescription) for backward
+ * compatibility with documents written before the configurable program.
+ *
  * @param {Object} data
  */
 function mapBenefitsSettings(data) {
-  const benefitsProgram = data?.loyaltyProgram || {}
+  const lp = data?.loyaltyProgram || {}
+
+  const accumulation =
+    lp.accumulation ?? LOYALTY.ACCUMULATION.VISITS
+  const condition = Number(
+    lp.condition ?? lp.rewardEveryVisits ?? BENEFITS.DEFAULT_REWARD_EVERY_VISITS
+  )
+  const benefitType = lp.benefit?.type ?? lp.rewardType ?? BENEFITS.REWARD_TYPE
+  const discountPercent = Number(
+    lp.benefit?.discountPercent ?? LOYALTY.DEFAULT_DISCOUNT_PERCENT
+  )
+  const freeServiceId = lp.benefit?.freeServiceId ?? LOYALTY.FREE_SERVICE_ANY
+  const freeServiceName = lp.benefit?.freeServiceName ?? ''
+  const repeat = lp.repeat ?? false
+  const validity = {
+    enabled: lp.validity?.enabled ?? false,
+    days: Number(lp.validity?.days ?? LOYALTY.DEFAULT_VALIDITY_DAYS),
+  }
+  const enabled = lp.enabled ?? true
+  const showProgress = lp.showProgress ?? true
+
+  const benefit = {
+    type: benefitType,
+    discountPercent:
+      benefitType === LOYALTY.BENEFIT.FREE_SERVICE ? LOYALTY.DEFAULT_DISCOUNT_PERCENT : discountPercent,
+    freeServiceId:
+      benefitType === LOYALTY.BENEFIT.FREE_SERVICE ? freeServiceId : LOYALTY.FREE_SERVICE_ANY,
+    freeServiceName:
+      benefitType === LOYALTY.BENEFIT.FREE_SERVICE ? freeServiceName : '',
+  }
+
+  const normalized = {
+    enabled,
+    accumulation,
+    condition,
+    benefit,
+    repeat,
+    validity,
+    showProgress,
+  }
+
   return {
-    enabled: benefitsProgram.enabled ?? true,
-    rewardEveryVisits: benefitsProgram.rewardEveryVisits ?? BENEFITS.DEFAULT_REWARD_EVERY_VISITS,
-    rewardIncrement: benefitsProgram.rewardIncrement ?? BENEFITS.DEFAULT_REWARD_INCREMENT,
-    rewardType: benefitsProgram.rewardType ?? BENEFITS.REWARD_TYPE,
-    rewardDescription: benefitsProgram.rewardDescription ?? BENEFITS.REWARD_DESCRIPTION,
-    showProgress: benefitsProgram.showProgress ?? true,
+    ...normalized,
+    // Legacy aliases kept so existing consumers (reward engine, dashboard
+    // cards) continue working without changes.
+    rewardEveryVisits: condition,
+    rewardIncrement: condition,
+    rewardType: benefitType,
+    rewardDescription: getRewardLabel(normalized),
   }
 }
 
@@ -78,17 +145,70 @@ export async function updateSettings(data) {
   }
 }
 
+/**
+ * Normalize a loyalty program config before persisting it, so the stored
+ * document always has the full nested shape (safe against partial writes).
+ * @param {Object} config
+ * @returns {Object}
+ */
+export function normalizeLoyaltyConfig(config) {
+  const base = DEFAULT_LOYALTY_PROGRAM
+  const incoming = config || {}
+  const benefitType =
+    incoming.benefit?.type ??
+    incoming.rewardType ??
+    base.benefit.type
+
+  return {
+    enabled: incoming.enabled ?? base.enabled,
+    accumulation:
+      incoming.accumulation ?? base.accumulation,
+    condition: Math.max(
+      1,
+      Number(incoming.condition ?? incoming.rewardEveryVisits ?? base.condition) || 1
+    ),
+    benefit: {
+      type: benefitType,
+      discountPercent: Math.min(
+        100,
+        Math.max(
+          1,
+          Number(incoming.benefit?.discountPercent ?? base.benefit.discountPercent) || 1
+        )
+      ),
+      freeServiceId:
+        benefitType === LOYALTY.BENEFIT.FREE_SERVICE
+          ? incoming.benefit?.freeServiceId ?? base.benefit.freeServiceId
+          : LOYALTY.FREE_SERVICE_ANY,
+      freeServiceName:
+        benefitType === LOYALTY.BENEFIT.FREE_SERVICE
+          ? (incoming.benefit?.freeServiceName ?? '').toString()
+          : '',
+    },
+    repeat: incoming.repeat ?? base.repeat,
+    validity: {
+      enabled: incoming.validity?.enabled ?? base.validity.enabled,
+      days: Math.max(
+        1,
+        Number(incoming.validity?.days ?? base.validity.days) || 1
+      ),
+    },
+    showProgress: incoming.showProgress ?? base.showProgress,
+  }
+}
+
 export async function updateBenefitsSettings(config) {
   const ref = settingsRef()
   const snap = await getDoc(ref)
+  const normalized = normalizeLoyaltyConfig(config)
   if (snap.exists()) {
     await updateDoc(ref, {
-      loyaltyProgram: config,
+      loyaltyProgram: normalized,
       updatedAt: serverTimestamp(),
     })
   } else {
     await setDoc(ref, {
-      loyaltyProgram: config,
+      loyaltyProgram: normalized,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     })

@@ -2,6 +2,8 @@ import { Phone, Edit2, CalendarDays, MessageCircle, History, Gift } from 'lucide
 import { getInitials, formatPhoneDisplayPY } from '@/utils/formatters'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
+import { useBenefitsSettings } from '@/hooks/useBenefits'
+import { getAccumulationLabel, getRewardLabel, getActiveRewardCount } from '@/utils/loyalty'
 
 /**
  * Returns the phone/WhatsApp status badge for a client or user document.
@@ -30,6 +32,14 @@ function WhatsAppBadge({ phone, phoneVerified }) {
 }
 
 function ClientCard({ client, onEdit, onViewHistory }) {
+  const { data: benefitsSettings } = useBenefitsSettings()
+  const accumulationLabel = getAccumulationLabel(benefitsSettings ?? {})
+  const rewardLabel = getRewardLabel(benefitsSettings ?? {})
+  const availableRewards = getActiveRewardCount(benefitsSettings ?? {}, client)
+  const counter = benefitsSettings?.accumulation === 'services'
+    ? (client.totalServices ?? 0)
+    : (client.totalVisits ?? 0)
+
   return (
     <Card>
       <Card.Body>
@@ -69,12 +79,12 @@ function ClientCard({ client, onEdit, onViewHistory }) {
         <div className="flex items-center justify-between gap-2 text-sm flex-wrap">
           <div className="flex items-center gap-2 text-brand-text-muted">
             <CalendarDays className="h-4 w-4" />
-            <span><strong className="text-brand-text">{client.totalVisits || 0}</strong> visita{(client.totalVisits ?? 0) !== 1 ? 's' : ''}</span>
+            <span><strong className="text-brand-text">{counter || 0}</strong> {counter === 1 ? accumulationLabel.slice(0, -1) : accumulationLabel}</span>
           </div>
-          {(client.freeServices ?? 0) > 0 && (
+          {availableRewards > 0 && (
             <span className="inline-flex items-center gap-1 rounded-full bg-brand-primary/10 px-2 py-0.5 text-[11px] font-medium text-brand-primary">
               <Gift className="h-3 w-3" />
-              {client.freeServices} desc. 20%
+              {availableRewards} {rewardLabel}
             </span>
           )}
         </div>

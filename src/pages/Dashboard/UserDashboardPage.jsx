@@ -30,6 +30,7 @@ function UserDashboardPage() {
   const { data: appointments } = useAppointmentsByClient(clientId)
 
   const totalVisits = userProfile?.totalVisits ?? 0
+  const totalServices = userProfile?.totalServices ?? 0
 
   const futureAppointments = useMemo(() => {
     if (!appointments) return []
@@ -58,7 +59,7 @@ function UserDashboardPage() {
       </div>
 
       {/* ── Mis Beneficios (solo usuarios) ── */}
-      {role === 'user' && <MisBeneficiosCard totalVisits={totalVisits} />}
+      {role === 'user' && <MisBeneficiosCard totalVisits={totalVisits} totalServices={totalServices} />}
 
       {/* ── Welcome Card (no visits) ── */}
       {totalVisits === 0 && (

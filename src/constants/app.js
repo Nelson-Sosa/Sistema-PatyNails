@@ -107,6 +107,38 @@ export const BENEFITS = {
   REWARD_DESCRIPTION: '20% de descuento',
 }
 
+/**
+ * Configurable Loyalty Program — single source of truth for the reward engine
+ * and the admin configuration UI (Configuración → Programa de Fidelización).
+ * Designed to be extended with new reward types without breaking the engine.
+ */
+export const LOYALTY = {
+  /** How rewards are earned */
+  ACCUMULATION: {
+    VISITS: 'visits',     // each completed appointment = 1 visit
+    SERVICES: 'services', // each completed service = 1 service
+  },
+
+  /** Reward types. Add new types here and register their grant logic in the engine. */
+  BENEFIT: {
+    DISCOUNT: 'discount',           // percentage discount off any service
+    FREE_SERVICE: 'free_service',   // free service (any or a specific one)
+  },
+
+  /** Magic value meaning "the client can pick any service" for free-service rewards */
+  FREE_SERVICE_ANY: 'any',
+
+  /** Quick presets used in the config UI */
+  CONDITION_PRESETS: [6, 10, 15],
+  DISCOUNT_PRESETS: [10, 20, 30, 40, 50],
+  VALIDITY_PRESETS: [90, 180, 365],
+
+  /** Defaults for a brand new program */
+  DEFAULT_CONDITION: 6,
+  DEFAULT_DISCOUNT_PERCENT: 20,
+  DEFAULT_VALIDITY_DAYS: 90,
+}
+
 /** Phase 2 — WhatsApp trigger types (not implemented) */
 export const WHATSAPP_TRIGGERS = {
   REMINDER_24H: 'reminder_24h',

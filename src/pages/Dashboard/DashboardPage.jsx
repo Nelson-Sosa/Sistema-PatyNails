@@ -1,5 +1,6 @@
 import { TrendingUp, Users, CalendarDays, Landmark, Clock, ChevronRight } from 'lucide-react'
 import BenefitsCard from './components/BenefitsCard'
+import LoyaltyAdminPanel from './components/LoyaltyAdminPanel'
 import { useAuth } from '@/hooks/useAuth'
 import { usePageTitle } from '@/hooks/usePageTitle'
 import { useDashboardStats } from '@/hooks/useDashboardStats'
@@ -79,6 +80,9 @@ function DashboardPage() {
           </div>
         ))}
       </div>
+
+      {/* ── Loyalty Program (Admin Panel) ──────────────────────────────────── */}
+      <LoyaltyAdminPanel />
 
       {/* ── Main Content (3-column grid at lg) ──────────────────────────────── */}
       <div className="grid gap-6 xl:grid-cols-3">

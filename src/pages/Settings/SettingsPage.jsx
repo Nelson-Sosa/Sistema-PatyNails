@@ -1,7 +1,8 @@
-import { Settings, CreditCard, Clock } from 'lucide-react'
+import { Settings, CreditCard, Clock, Gift } from 'lucide-react'
 import { usePageTitle } from '@/hooks/usePageTitle'
 import PaymentSettingsSection from './components/PaymentSettingsSection'
 import BusinessSettingsSection from './components/BusinessSettingsSection'
+import LoyaltyProgramSection from './components/LoyaltyProgramSection'
 
 function SettingsPage() {
   usePageTitle('Configuración')
@@ -45,6 +46,22 @@ function SettingsPage() {
         </div>
         <div className="rounded-2xl border border-brand-border bg-brand-card p-4 sm:p-5">
           <PaymentSettingsSection />
+        </div>
+      </section>
+
+      {/* ── Loyalty Program section */}
+      <section>
+        <div className="flex items-center gap-2 mb-4">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-pastel">
+            <Gift className="h-4 w-4 text-brand-primary" />
+          </div>
+          <div>
+            <h2 className="text-base font-semibold text-brand-text">Programa de Fidelización</h2>
+            <p className="text-xs text-brand-text-muted">Configurá el programa de recompensas por fidelidad</p>
+          </div>
+        </div>
+        <div className="rounded-2xl border border-brand-border bg-brand-card p-4 sm:p-5">
+          <LoyaltyProgramSection />
         </div>
       </section>
     </div>

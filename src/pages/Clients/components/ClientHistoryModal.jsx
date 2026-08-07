@@ -1,13 +1,20 @@
 import { useMemo, useState } from 'react'
-import { X, CalendarDays, Clock, DollarSign, Scissors, Gift, Sparkles } from 'lucide-react'
+import { X, CalendarDays, Clock, DollarSign, Scissors, Gift, Sparkles, AlertTriangle } from 'lucide-react'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { useClientHistory } from '@/hooks/useClients'
 import { useClientWorks } from '@/hooks/useWorks'
-import { useBenefitsSettings, useRedeemDiscount } from '@/hooks/useBenefits'
+import { useBenefitsSettings, useRedeemReward } from '@/hooks/useBenefits'
 import { useAuth } from '@/hooks/useAuth'
-import { APPOINTMENT_STATUS } from '@/constants/app'
+import { APPOINTMENT_STATUS, LOYALTY } from '@/constants/app'
 import { formatCurrency, formatPhoneDisplayPY } from '@/utils/formatters'
+import {
+  getAccumulationLabel,
+  getRewardLabel,
+  getClientRewardStatus,
+  getActiveRewardCount,
+  isRewardsExpired,
+} from '@/utils/loyalty'
 import { cn } from '@/utils/cn'
 import Button from '@/components/ui/Button'
 import Spinner from '@/components/ui/Spinner'
@@ -24,10 +31,17 @@ function getAptDate(apt) {
 function ClientHistoryModal({ isOpen, onClose, client }) {
   const { data: appointments, isLoading } = useClientHistory(client?.id)
   const { data: benefitsSettings } = useBenefitsSettings()
-  const redeemMutation = useRedeemDiscount()
+  const redeemMutation = useRedeemReward()
   const { user } = useAuth()
   const [confirmRedeem, setConfirmRedeem] = useState(false)
   const [selectedWork, setSelectedWork] = useState(null)
+
+  const rewardType = benefitsSettings?.benefit?.type ?? LOYALTY.BENEFIT.DISCOUNT
+  const rewardLabel = getRewardLabel(benefitsSettings ?? {})
+  const accumulationLabel = getAccumulationLabel(benefitsSettings ?? {})
+  const rewardStatus = getClientRewardStatus(benefitsSettings ?? {}, client)
+  const activeRewards = getActiveRewardCount(benefitsSettings ?? {}, client)
+  const expiredRewards = isRewardsExpired(benefitsSettings ?? {}, client)
 
   const { data: works, isLoading: isLoadingWorks } = useClientWorks(client?.id)
 
@@ -110,14 +124,25 @@ function ClientHistoryModal({ isOpen, onClose, client }) {
                   <h3 className="text-base font-semibold text-brand-text">Programa de Beneficios</h3>
                 </div>
 
-                {(client.freeServices ?? 0) > 0 ? (
+                {expiredRewards && (
+                  <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                    <p className="text-xs text-amber-700">
+                      Las recompensas de este cliente vencieron por no canjearse a tiempo.
+                    </p>
+                  </div>
+                )}
+
+                {activeRewards > 0 ? (
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 text-sm">
                       <Sparkles className="h-4 w-4 text-amber-600" />
-                      <span className="text-amber-600 font-medium">20% de descuento disponible</span>
+                      <span className="text-amber-600 font-medium">
+                        {rewardLabel}{activeRewards > 1 ? ' disponibles' : ' disponible'}
+                      </span>
                     </div>
                     <p className="text-sm text-brand-text-muted">
-                      {client.freeServices} descuento{(client.freeServices ?? 0) > 1 ? 's' : ''} del 20% para canjear.
+                      {activeRewards} {activeRewards > 1 ? 'recompensas' : 'recompensa'} para canjear.
                     </p>
                     <Button
                       variant="outline"
@@ -126,30 +151,27 @@ function ClientHistoryModal({ isOpen, onClose, client }) {
                       onClick={() => setConfirmRedeem(true)}
                     >
                       <Gift className="h-3.5 w-3.5" />
-                      Canjear Descuento
+                      Canjear {rewardLabel}
                     </Button>
                   </div>
                 ) : (
                   <div className="space-y-3">
                     <div className="flex items-center justify-between text-sm text-brand-text-muted">
-                      <span>{client.totalVisits ?? 0} de {client.nextRewardAt ?? benefitsSettings.rewardEveryVisits ?? 6} visitas</span>
-                      <span className="font-medium text-brand-primary">{Math.max((client.nextRewardAt ?? benefitsSettings.rewardEveryVisits ?? 6) - (client.totalVisits ?? 0), 0)} restantes</span>
+                      <span>{rewardStatus.counter} de {rewardStatus.condition} {accumulationLabel}</span>
+                      <span className="font-medium text-brand-primary">
+                        {rewardStatus.remaining} restantes
+                      </span>
                     </div>
                     <div className="h-2.5 w-full overflow-hidden rounded-full bg-brand-pastel/50">
                       <div
                         className="h-full rounded-full bg-brand-primary transition-all duration-500"
-                        style={{
-                          width: `${Math.min(
-                            ((client.totalVisits ?? 0) / (client.nextRewardAt ?? benefitsSettings.rewardEveryVisits ?? 6)) * 100,
-                            100
-                          )}%`
-                        }}
+                        style={{ width: `${rewardStatus.progressPct}%` }}
                       />
                     </div>
                     <p className="text-sm text-brand-text-muted">
-                      {client.totalVisits >= (client.nextRewardAt ?? benefitsSettings.rewardEveryVisits ?? 6)
+                      {rewardStatus.ready
                         ? '¡Listo para recompensa!'
-                        : `Faltan ${Math.max((client.nextRewardAt ?? benefitsSettings.rewardEveryVisits ?? 6) - (client.totalVisits ?? 0), 0)} visita${Math.max((client.nextRewardAt ?? 6) - (client.totalVisits ?? 0), 0) !== 1 ? 's' : ''} para obtener un 20% de descuento.`
+                        : `Faltan ${rewardStatus.remaining} ${rewardStatus.remaining !== 1 ? accumulationLabel : accumulationLabel.slice(0, -1)} para obtener ${rewardLabel}.`
                       }
                     </p>
                   </div>
@@ -266,11 +288,15 @@ function ClientHistoryModal({ isOpen, onClose, client }) {
               isOpen={confirmRedeem}
               onClose={() => setConfirmRedeem(false)}
               onConfirm={async () => {
-                await redeemMutation.mutateAsync({ clientId: client.id, adminUid: user?.uid })
+                await redeemMutation.mutateAsync({
+                  clientId: client.id,
+                  adminUid: user?.uid,
+                  type: rewardType,
+                })
                 setConfirmRedeem(false)
               }}
-              title="Canjear Descuento del 20%"
-              message={`¿Estás seguro de que deseas canjear 1 descuento del 20% para ${client.name}?`}
+              title={`Canjear ${rewardLabel}`}
+              message={`¿Estás seguro de que deseas canjear ${rewardLabel} para ${client.name}?`}
               confirmLabel="Canjear"
               isLoading={redeemMutation.isPending}
             />

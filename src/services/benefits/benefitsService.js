@@ -1,11 +1,12 @@
 import {
-  doc, getDoc, updateDoc, addDoc, collection, query, where,
+  doc, getDoc, updateDoc, collection, query, where,
   getDocs, orderBy, limit, runTransaction, onSnapshot, Timestamp, serverTimestamp,
 } from 'firebase/firestore'
 import { db } from '@/firebase/config'
-import { COLLECTIONS, BENEFITS } from '@/constants/app'
+import { COLLECTIONS, BENEFITS, LOYALTY } from '@/constants/app'
 import { getBenefitsSettings } from '@/services/settings/settingsService'
 import { formatPhoneStoragePY } from '@/utils/formatters'
+import { getRewardLabel } from '@/utils/loyalty'
 
 /**
  * Normalize a phone number so it can be used as a stable identifier for guest
@@ -19,27 +20,120 @@ function normalizePhone(phone) {
 }
 
 /**
+ * Field that holds the accumulated counter on client/user documents, based on
+ * the configured accumulation mode (visits vs completed services).
+ * @param {string} accumulation
+ * @returns {string}
+ */
+function counterField(accumulation) {
+  return accumulation === LOYALTY.ACCUMULATION.SERVICES ? 'totalServices' : 'totalVisits'
+}
+
+/**
+ * Normalize the raw settings into the shape the engine needs (with safe
+ * defaults), so legacy documents keep working.
+ * @param {Object} settings
+ */
+function engineConfig(settings) {
+  return {
+    enabled: settings?.enabled ?? true,
+    accumulation: settings?.accumulation ?? LOYALTY.ACCUMULATION.VISITS,
+    condition: Number(
+      settings?.condition ?? settings?.rewardEveryVisits ?? BENEFITS.DEFAULT_REWARD_EVERY_VISITS
+    ),
+    benefit: settings?.benefit ?? {
+      type: settings?.rewardType ?? LOYALTY.BENEFIT.DISCOUNT,
+      discountPercent: LOYALTY.DEFAULT_DISCOUNT_PERCENT,
+    },
+    repeat: settings?.repeat ?? false,
+    validity: settings?.validity ?? { enabled: false, days: LOYALTY.DEFAULT_VALIDITY_DAYS },
+  }
+}
+
+/**
+ * Grant a reward on a client document, mutating the counters object.
+ * Returns whether a reward was granted and its type.
+ *
+ * @param {Object} clientData - current client/user data (will be mutated)
+ * @param {Object} config - normalized engine config
+ * @returns {{rewardGranted: boolean, rewardType: string|null}}
+ */
+function applyReward(clientData, config) {
+  const counter = clientData[counterField(config.accumulation)] ?? clientData.totalVisits ?? 0
+  const nextRewardAt = clientData.nextRewardAt ?? config.condition
+
+  let rewardGranted = false
+  let rewardType = null
+
+  if (counter >= nextRewardAt) {
+    rewardType =
+      config.benefit.type === LOYALTY.BENEFIT.FREE_SERVICE
+        ? LOYALTY.BENEFIT.FREE_SERVICE
+        : LOYALTY.BENEFIT.DISCOUNT
+
+    if (rewardType === LOYALTY.BENEFIT.FREE_SERVICE) {
+      clientData.freeServiceRewards = (clientData.freeServiceRewards ?? 0) + 1
+    } else {
+      clientData.freeServices = (clientData.freeServices ?? 0) + 1
+    }
+
+    clientData.lastRewardAt = Timestamp.now()
+    clientData.nextRewardAt =
+      config.repeat ? counter + config.condition : nextRewardAt + config.condition
+
+    if (config.validity.enabled && config.validity.days > 0) {
+      clientData.rewardsExpireAt = Timestamp.fromDate(
+        new Date(Date.now() + config.validity.days * 24 * 60 * 60 * 1000)
+      )
+    }
+    rewardGranted = true
+  }
+
+  return { rewardGranted, rewardType }
+}
+
+/**
+ * Build the loyalty history record for a completed visit.
+ * @param {Object} args
+ */
+function buildVisitHistory({
+  clientId, appointmentId, appointment, visitNumber, rewardGranted, rewardType, config,
+}) {
+  return {
+    clientId,
+    appointmentId,
+    type: 'visit',
+    visitNumber,
+    serviceName: appointment?.serviceName ?? null,
+    serviceId: appointment?.serviceId ?? null,
+    rewardType,
+    rewardDescription: rewardGranted ? getRewardLabel(config) : null,
+    rewardGranted,
+    earnedAt: Timestamp.now(),
+    redeemed: false,
+    redeemedAt: null,
+    redeemedBy: null,
+  }
+}
+
+/**
  * Process a completed visit for the benefits program.
  * Called when an appointment transitions to status "done".
  * - Marks the appointment as processed (prevents double-processing)
- * - Reads the client's current totalVisits (already incremented by incomeService)
- * - If totalVisits >= nextRewardAt, grants a 20% discount
- * - Records everything atomically in a transaction
+ * - Reads the client's current counter (totalVisits, already incremented by
+ *   incomeService, or totalServices for services-based accumulation)
+ * - If the counter reached the configured threshold, grants the configured
+ *   reward (discount or free service) and records everything atomically
  *
  * @param {string} clientId
  * @param {string} appointmentId
  * @returns {Promise<{rewardGranted: boolean, currentVisits: number, nextRewardAt: number, freeServices: number}|null>}
- *
- * NOTE: `freeServices` in the DB represents the count of available 20% discounts.
  */
 export async function processCompletedVisit(clientId, appointmentId) {
   if (!clientId || !appointmentId) return null
 
-  const benefitsSettings = await getBenefitsSettings()
-  if (!benefitsSettings.enabled) return null
-
-  const rewardEvery = benefitsSettings.rewardEveryVisits
-  const rewardIncrement = benefitsSettings.rewardIncrement || rewardEvery
+  const config = engineConfig(await getBenefitsSettings())
+  if (!config.enabled) return null
 
   const appointmentRef = doc(db, COLLECTIONS.APPOINTMENTS, appointmentId)
 
@@ -48,6 +142,7 @@ export async function processCompletedVisit(clientId, appointmentId) {
       const apptSnap = await transaction.get(appointmentRef)
       if (!apptSnap.exists()) return null
       if (apptSnap.data().visitProcessed) return null
+      const appointment = apptSnap.data()
 
       const userRef = doc(db, COLLECTIONS.USERS, clientId)
       const userSnap = await transaction.get(userRef)
@@ -62,43 +157,49 @@ export async function processCompletedVisit(clientId, appointmentId) {
         clientData = clientSnap.data()
       }
 
-      const currentVisits = clientData.totalVisits ?? 0
-      let freeServices = clientData.freeServices ?? 0
-      let nextRewardAt = clientData.nextRewardAt ?? rewardEvery
-      let lastRewardAt = clientData.lastRewardAt ?? null
-      let rewardGranted = false
+      // totalVisits is already incremented by incomeService; totalServices is
+      // kept in sync here for services-based accumulation.
+      const totalVisits = clientData.totalVisits ?? 0
+      const totalServices = (clientData.totalServices ?? 0) + 1
+      clientData.totalServices = totalServices
+      clientData.totalVisits = totalVisits
 
-      if (currentVisits >= nextRewardAt) {
-        freeServices += 1
-        lastRewardAt = Timestamp.now()
-        nextRewardAt = nextRewardAt + rewardIncrement
-        rewardGranted = true
+      const { rewardGranted, rewardType } = applyReward(clientData, config)
+
+      const finalPayload = {
+        totalVisits,
+        totalServices,
+        freeServices: clientData.freeServices ?? 0,
+        freeServiceRewards: clientData.freeServiceRewards ?? 0,
+        nextRewardAt: clientData.nextRewardAt ?? config.condition,
+        lastRewardAt: clientData.lastRewardAt ?? null,
+        updatedAt: serverTimestamp(),
+      }
+      if (config.validity.enabled) {
+        finalPayload.rewardsExpireAt = clientData.rewardsExpireAt ?? null
       }
 
-      transaction.update(clientRef, {
-        freeServices,
-        nextRewardAt,
-        lastRewardAt,
-        updatedAt: serverTimestamp(),
-      })
+      transaction.update(clientRef, finalPayload)
 
       transaction.update(appointmentRef, { visitProcessed: true })
 
       const historyRef = doc(collection(db, COLLECTIONS.LOYALTY_HISTORY))
-      transaction.set(historyRef, {
+      transaction.set(historyRef, buildVisitHistory({
         clientId,
         appointmentId,
-        type: 'visit',
-        visitNumber: currentVisits,
-        rewardType: rewardGranted ? 'discount' : null,
+        appointment,
+        visitNumber: totalVisits,
         rewardGranted,
-        earnedAt: Timestamp.now(),
-        redeemed: false,
-        redeemedAt: null,
-        redeemedBy: null,
-      })
+        rewardType,
+        config,
+      }))
 
-      return { rewardGranted, currentVisits, nextRewardAt, freeServices }
+      return {
+        rewardGranted,
+        currentVisits: totalVisits,
+        nextRewardAt: finalPayload.nextRewardAt,
+        freeServices: finalPayload.freeServices,
+      }
     })
   } catch (err) {
     console.error('[benefits] processCompletedVisit error:', err)
@@ -107,15 +208,23 @@ export async function processCompletedVisit(clientId, appointmentId) {
 }
 
 /**
- * Redeem a 20% discount for a client.
- * Deducts one discount and records the redemption in history.
+ * Redeem an available reward (discount or free service) for a client.
+ * Deducts one reward of the given type and records the redemption in history.
+ * Refuses to redeem when the reward pool has expired (validity window).
  *
  * @param {string} clientId
  * @param {string} adminUid
- * @returns {Promise<{success: boolean}>}
+ * @param {string} [type] - LOYALTY.BENEFIT.DISCOUNT or LOYALTY.BENEFIT.FREE_SERVICE
+ * @returns {Promise<{success: boolean, reason?: string}>}
  */
-export async function redeemDiscount(clientId, adminUid) {
-  if (!clientId) return { success: false }
+export async function redeemReward(clientId, adminUid, type = LOYALTY.BENEFIT.DISCOUNT) {
+  if (!clientId) return { success: false, reason: 'no-client' }
+
+  const config = engineConfig(await getBenefitsSettings())
+  if (!config.enabled) return { success: false, reason: 'disabled' }
+
+  const field =
+    type === LOYALTY.BENEFIT.FREE_SERVICE ? 'freeServiceRewards' : 'freeServices'
 
   try {
     return await runTransaction(db, async (transaction) => {
@@ -128,16 +237,27 @@ export async function redeemDiscount(clientId, adminUid) {
       } else {
         clientRef = doc(db, COLLECTIONS.CLIENTS, clientId)
         const clientSnap = await transaction.get(clientRef)
-        if (!clientSnap.exists()) return { success: false }
+        if (!clientSnap.exists()) return { success: false, reason: 'no-client' }
         clientData = clientSnap.data()
       }
 
-      if ((clientData.freeServices ?? 0) < 1) return { success: false }
+      const available = clientData[field] ?? 0
+      if (available < 1) return { success: false, reason: 'no-rewards' }
 
-      const newFreeServices = clientData.freeServices - 1
+      if (config.validity.enabled && clientData.rewardsExpireAt) {
+        const expireAt = clientData.rewardsExpireAt
+        const expireTime = expireAt.toDate
+          ? expireAt.toDate().getTime()
+          : expireAt.seconds
+            ? expireAt.seconds * 1000
+            : new Date(expireAt).getTime()
+        if (Date.now() > expireTime) {
+          return { success: false, reason: 'expired' }
+        }
+      }
 
       transaction.update(clientRef, {
-        freeServices: newFreeServices,
+        [field]: available - 1,
         updatedAt: serverTimestamp(),
       })
 
@@ -147,7 +267,8 @@ export async function redeemDiscount(clientId, adminUid) {
         appointmentId: null,
         type: 'redemption',
         visitNumber: clientData.totalVisits ?? 0,
-        rewardType: 'discount',
+        rewardType: type,
+        rewardDescription: getRewardLabel(config),
         rewardGranted: true,
         earnedAt: Timestamp.now(),
         redeemed: true,
@@ -155,12 +276,22 @@ export async function redeemDiscount(clientId, adminUid) {
         redeemedBy: adminUid || null,
       })
 
-      return { success: true, freeServices: newFreeServices }
+      return { success: true, [field]: available - 1 }
     })
   } catch (err) {
-    console.error('[benefits] redeemDiscount error:', err)
-    return { success: false }
+    console.error('[benefits] redeemReward error:', err)
+    return { success: false, reason: 'error' }
   }
+}
+
+/**
+ * Redeem a discount reward for a client (backward-compatible wrapper).
+ * @param {string} clientId
+ * @param {string} adminUid
+ * @returns {Promise<{success: boolean}>}
+ */
+export async function redeemDiscount(clientId, adminUid) {
+  return redeemReward(clientId, adminUid, LOYALTY.BENEFIT.DISCOUNT)
 }
 
 /**
@@ -255,8 +386,9 @@ export async function processGuestCompletedVisit(phone, appointmentId) {
   const benefitsSettings = await getBenefitsSettings()
   if (!benefitsSettings.enabled) return null
 
-  const rewardEvery = benefitsSettings.rewardEveryVisits
-  const rewardIncrement = benefitsSettings.rewardIncrement || rewardEvery
+  const config = engineConfig(await getBenefitsSettings())
+  if (!config.enabled) return null
+
   const clientPhone = normalizePhone(phone)
 
   const appointmentRef = doc(db, COLLECTIONS.APPOINTMENTS, appointmentId)
@@ -267,33 +399,31 @@ export async function processGuestCompletedVisit(phone, appointmentId) {
       const apptSnap = await transaction.get(appointmentRef)
       if (!apptSnap.exists()) return null
       if (apptSnap.data().visitProcessed) return null
+      const appointment = apptSnap.data()
 
       const clientSnap = await transaction.get(clientRef)
       const isNew = !clientSnap.exists()
       const clientData = isNew ? {} : clientSnap.data()
 
-      const currentVisits = (clientData.totalVisits ?? 0) + 1
-      let freeServices = clientData.freeServices ?? 0
-      let nextRewardAt = clientData.nextRewardAt ?? rewardEvery
-      let lastRewardAt = clientData.lastRewardAt ?? null
-      let rewardGranted = false
+      const totalVisits = (clientData.totalVisits ?? 0) + 1
+      const totalServices = (clientData.totalServices ?? 0) + 1
+      clientData.totalVisits = totalVisits
+      clientData.totalServices = totalServices
 
-      if (currentVisits >= nextRewardAt) {
-        freeServices += 1
-        lastRewardAt = Timestamp.now()
-        nextRewardAt = nextRewardAt + rewardIncrement
-        rewardGranted = true
-      }
+      const { rewardGranted, rewardType } = applyReward(clientData, config)
 
       const clientPayload = {
-        name: apptSnap.data().clientName || clientData.name || '',
+        name: appointment.clientName || clientData.name || '',
         phone: clientPhone,
         whatsapp: clientPhone,
         notes: clientData.notes || '',
-        totalVisits: currentVisits,
-        freeServices,
-        nextRewardAt,
-        lastRewardAt,
+        totalVisits,
+        totalServices,
+        freeServices: clientData.freeServices ?? 0,
+        freeServiceRewards: clientData.freeServiceRewards ?? 0,
+        nextRewardAt: clientData.nextRewardAt ?? config.condition,
+        lastRewardAt: clientData.lastRewardAt ?? null,
+        ...(config.validity.enabled ? { rewardsExpireAt: clientData.rewardsExpireAt ?? null } : {}),
         whatsappOptIn: clientData.whatsappOptIn ?? false,
         phoneVerified: false,
         remindersEnabled: false,
@@ -313,20 +443,22 @@ export async function processGuestCompletedVisit(phone, appointmentId) {
       transaction.update(appointmentRef, { visitProcessed: true })
 
       const historyRef = doc(collection(db, COLLECTIONS.LOYALTY_HISTORY))
-      transaction.set(historyRef, {
+      transaction.set(historyRef, buildVisitHistory({
         clientId: clientPhone,
         appointmentId,
-        type: 'visit',
-        visitNumber: currentVisits,
-        rewardType: rewardGranted ? 'discount' : null,
+        appointment,
+        visitNumber: totalVisits,
         rewardGranted,
-        earnedAt: Timestamp.now(),
-        redeemed: false,
-        redeemedAt: null,
-        redeemedBy: null,
-      })
+        rewardType,
+        config,
+      }))
 
-      return { rewardGranted, currentVisits, nextRewardAt, freeServices }
+      return {
+        rewardGranted,
+        currentVisits: totalVisits,
+        nextRewardAt: clientPayload.nextRewardAt,
+        freeServices: clientPayload.freeServices,
+      }
     })
   } catch (err) {
     console.error('[benefits] processGuestCompletedVisit error:', err)
@@ -370,9 +502,12 @@ export async function linkGuestHistory(phone, uid) {
 
       await updateDoc(userRef, {
         totalVisits: (user.totalVisits ?? 0) + (guest.totalVisits ?? 0),
+        totalServices: (user.totalServices ?? 0) + (guest.totalServices ?? 0),
         freeServices: (user.freeServices ?? 0) + (guest.freeServices ?? 0),
+        freeServiceRewards: (user.freeServiceRewards ?? 0) + (guest.freeServiceRewards ?? 0),
         nextRewardAt: guest.nextRewardAt ?? user.nextRewardAt ?? BENEFITS.DEFAULT_REWARD_EVERY_VISITS,
         lastRewardAt: guest.lastRewardAt ?? user.lastRewardAt ?? null,
+        rewardsExpireAt: guest.rewardsExpireAt ?? user.rewardsExpireAt ?? null,
         linkedFromPhone: clientPhone,
         updatedAt: serverTimestamp(),
       })
@@ -429,4 +564,49 @@ export async function linkGuestHistory(phone, uid) {
   }
 
   return { linked: true, appointments: appointmentsLinked, history: historyLinked }
+}
+
+// ─── Loyalty Program Stats (Admin Panel) ──────────────────────────────────────
+
+/**
+ * Subscribe to aggregate loyalty reward stats for the admin panel.
+ * Counts every granted reward from the audit history by type, plus redemptions.
+ *
+ * @param {(data: Object) => void} onNext
+ *   Receives { totalGranted, discountsGranted, freeServicesGranted, redemptions }
+ * @param {(error: Error) => void} [onError]
+ * @returns {() => void} unsubscribe
+ */
+export function subscribeLoyaltyStats(onNext, onError) {
+  const q = query(
+    collection(db, COLLECTIONS.LOYALTY_HISTORY),
+    where('rewardGranted', '==', true)
+  )
+
+  return onSnapshot(
+    q,
+    (snap) => {
+      const stats = {
+        totalGranted: 0,
+        discountsGranted: 0,
+        freeServicesGranted: 0,
+        redemptions: 0,
+      }
+      snap.docs.forEach((d) => {
+        const data = d.data()
+        if (data.type === 'redemption') {
+          stats.redemptions += 1
+          return
+        }
+        stats.totalGranted += 1
+        if (data.rewardType === LOYALTY.BENEFIT.FREE_SERVICE) {
+          stats.freeServicesGranted += 1
+        } else {
+          stats.discountsGranted += 1
+        }
+      })
+      onNext(stats)
+    },
+    onError
+  )
 }

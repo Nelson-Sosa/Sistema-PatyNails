@@ -1,13 +1,22 @@
 import { Gem, Gift, Bell, History, Calendar } from 'lucide-react'
-
-const BENEFITS = [
-  { icon: Gift, text: 'Programa de beneficios con 20% de descuento cada 6 visitas.' },
-  { icon: Bell, text: 'Recordatorios automáticos por WhatsApp (próximamente).' },
-  { icon: History, text: 'Historial completo de servicios y visitas.' },
-  { icon: Calendar, text: 'Reservas online 24/7 desde cualquier dispositivo.' },
-]
+import { useBenefitsSettings } from '@/hooks/useBenefits'
+import { getProgramDescription } from '@/utils/loyalty'
 
 function UserBenefitsCard() {
+  const { data: settings } = useBenefitsSettings()
+
+  const benefits = [
+    {
+      icon: Gift,
+      text: settings?.enabled
+        ? `Programa de beneficios: ${getProgramDescription(settings)}.`
+        : 'Programa de beneficios por fidelidad.',
+    },
+    { icon: Bell, text: 'Recordatorios automáticos por WhatsApp (próximamente).' },
+    { icon: History, text: 'Historial completo de servicios y visitas.' },
+    { icon: Calendar, text: 'Reservas online 24/7 desde cualquier dispositivo.' },
+  ]
+
   return (
     <div className="rounded-2xl border border-brand-pastel bg-brand-card p-6 transition-all duration-300 hover:border-brand-primary/50 shadow-sm">
       <div className="flex items-center gap-3 mb-5">
@@ -21,7 +30,7 @@ function UserBenefitsCard() {
       </div>
 
       <ul className="space-y-3">
-        {BENEFITS.map(({ icon: Icon, text }) => (
+        {benefits.map(({ icon: Icon, text }) => (
           <li key={text} className="flex items-start gap-3">
             <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-brand-pastel/30">
               <Icon className="h-3.5 w-3.5 text-brand-text-muted" />

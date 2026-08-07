@@ -4,55 +4,49 @@ import { useNavigate } from 'react-router-dom'
 import { ROUTES } from '@/routes/routes'
 import { cn } from '@/utils/cn'
 import ProgressBar from '@/components/ui/ProgressBar'
+import { useBenefitsSettings } from '@/hooks/useBenefits'
+import {
+  getAccumulationLabel,
+  getRewardLabel,
+  getCondition,
+  getClientProgressCount,
+} from '@/utils/loyalty'
 
-const REWARD_EVERY = 6
-
-function getMessage(progress, totalVisits) {
-  if (totalVisits === 0) {
-    return {
-      title: 'Bienvenido a patynails',
-      subtitle: 'Reserva tu primer turno y comienza a disfrutar de todos los beneficios.',
-    }
-  }
-
-  const rewardReady = totalVisits > 0 && progress === 0
-  if (rewardReady) {
-    return {
-      title: '¡Felicidades!',
-      subtitle: 'Ya tienes un 20% de descuento disponible.',
-      isReward: true,
-    }
-  }
-
-  if (progress <= 3) {
-    return {
-      title: '¡Excelente comienzo!',
-      subtitle: 'Cada visita te acerca a una recompensa.',
-    }
-  }
-
-  if (progress <= 6) {
-    return {
-      title: 'Ya llevas varias visitas.',
-      subtitle: 'Sigue así y pronto obtendrás un 20% de descuento.',
-    }
-  }
-
-  const remaining = REWARD_EVERY - progress
-  return {
-    title: '¡Ya casi llegas!',
-    subtitle: `Solo te faltan ${remaining} visita${remaining !== 1 ? 's' : ''} para desbloquear un 20% de descuento.`,
-  }
-}
-
-function MisBeneficiosCard({ totalVisits }) {
+/**
+ * MisBeneficiosCard — tarjeta de progreso de fidelización para clientes.
+ * Es 100% configurable: acumulación (visitas/servicios), condición y tipo de
+ * recompensa se leen del programa configurado por el administrador.
+ */
+function MisBeneficiosCard({ totalVisits = 0, totalServices = 0 }) {
+  const { data: settings } = useBenefitsSettings()
   const navigate = useNavigate()
   const [showModal, setShowModal] = useState(false)
 
-  const progress = totalVisits % REWARD_EVERY
-  const rewardReady = totalVisits > 0 && progress === 0
-  const displayProgress = rewardReady ? REWARD_EVERY : progress
-  const msg = getMessage(progress, totalVisits)
+  if (!settings?.enabled) return null
+
+  const condition = getCondition(settings)
+  const counter = getClientProgressCount(settings, { totalVisits, totalServices })
+  const unit = getAccumulationLabel(settings)
+  const rewardLabel = getRewardLabel(settings)
+
+  const progress = counter > 0 ? counter % condition : 0
+  const rewardReady = counter > 0 && progress === 0
+  const displayProgress = rewardReady ? condition : progress
+
+  let title = 'Bienvenido a patynails'
+  let subtitle = 'Reserva tu primer turno y comienza a disfrutar de todos los beneficios.'
+
+  if (rewardReady) {
+    title = '¡Felicidades!'
+    subtitle = `Ya tienes ${rewardLabel} disponible.`
+  } else if (counter > 0) {
+    const remaining = condition - progress
+    title = counter >= condition - 2 ? '¡Ya casi llegas!' : '¡Excelente comienzo!'
+    subtitle =
+      remaining === 1
+        ? `Solo te falta 1 ${unit.slice(0, -1)} para desbloquear ${rewardLabel}.`
+        : `Solo te faltan ${remaining} ${unit} para desbloquear ${rewardLabel}.`
+  }
 
   return (
     <>
@@ -78,40 +72,44 @@ function MisBeneficiosCard({ totalVisits }) {
             </span>
             <div>
               <p className="text-sm font-medium text-brand-text">Mis Beneficios</p>
-              <p className="text-xs text-brand-text-muted">Cada visita te acerca a nuevas recompensas.</p>
+              <p className="text-xs text-brand-text-muted">
+                Cada {unit.slice(0, -1)} te acerca a nuevas recompensas.
+              </p>
             </div>
           </div>
 
           {/* Message */}
           <div className="flex items-start gap-2">
-            {msg.isReward && <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />}
+            {rewardReady && <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />}
             <div>
               <p
                 className={cn(
                   'text-sm font-medium',
-                  msg.isReward ? 'text-emerald-500' : 'text-brand-text'
+                  rewardReady ? 'text-emerald-500' : 'text-brand-text'
                 )}
               >
-                {msg.title}
+                {title}
               </p>
-              <p className="mt-0.5 text-xs text-brand-text-muted">{msg.subtitle}</p>
+              <p className="mt-0.5 text-xs text-brand-text-muted">{subtitle}</p>
             </div>
           </div>
 
-          {/* Progress */}
-          <div className="space-y-2.5">
-            <ProgressBar value={displayProgress} max={REWARD_EVERY} />
-            <p className="text-xs text-brand-text-muted">
-              {displayProgress} de {REWARD_EVERY} visitas
-            </p>
-          </div>
+          {/* Progress (only when the admin enables it) */}
+          {settings.showProgress !== false && (
+            <div className="space-y-2.5">
+              <ProgressBar value={displayProgress} max={condition} />
+              <p className="text-xs text-brand-text-muted">
+                {rewardReady ? condition : progress} de {condition} {unit}
+              </p>
+            </div>
+          )}
 
           {/* Reward badge */}
           {rewardReady && (
             <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1">
               <Gift className="h-3.5 w-3.5 text-emerald-400" />
               <span className="text-xs font-medium text-emerald-300">
-                20% DTO. DISPONIBLE
+                {rewardLabel.toUpperCase()} DISPONIBLE
               </span>
             </div>
           )}
@@ -158,7 +156,7 @@ function MisBeneficiosCard({ totalVisits }) {
               <div>
                 <h2 className="text-lg font-bold text-brand-text">Recompensa disponible</h2>
                 <p className="mt-2 text-sm text-brand-text-muted leading-relaxed">
-                  Ya puedes reclamar tu 20% de descuento en tu próxima visita.
+                  Ya puedes reclamar tu {rewardLabel} en tu próxima visita.
                 </p>
               </div>
               <button
