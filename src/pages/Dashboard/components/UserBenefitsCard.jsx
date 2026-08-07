@@ -1,4 +1,4 @@
-import { Gem, Gift, Bell, History, Calendar } from 'lucide-react'
+import { Gem, Gift, History, Calendar } from 'lucide-react'
 import { useBenefitsSettings } from '@/hooks/useBenefits'
 import { getProgramDescription } from '@/utils/loyalty'
 
@@ -12,7 +12,6 @@ function UserBenefitsCard() {
         ? `Programa de beneficios: ${getProgramDescription(settings)}.`
         : 'Programa de beneficios por fidelidad.',
     },
-    { icon: Bell, text: 'Recordatorios automáticos por WhatsApp (próximamente).' },
     { icon: History, text: 'Historial completo de servicios y visitas.' },
     { icon: Calendar, text: 'Reservas online 24/7 desde cualquier dispositivo.' },
   ]
