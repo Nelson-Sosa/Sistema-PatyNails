@@ -4,6 +4,7 @@ import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import toast from 'react-hot-toast'
 import { APPOINTMENT_STATUS, STATUS_CONFIG, PAYMENT_STATUS } from '@/constants/app'
+import { Z_INDEX } from '@/constants/zIndex'
 import { useAuth } from '@/context/AuthContext'
 import { useApprovePayment, useRejectPayment } from '@/hooks/useAppointments'
 import { cn } from '@/utils/cn'
@@ -84,12 +85,16 @@ export default function AppointmentDrawer({ appointment, isOpen, onClose, onEdit
   return (
     <>
       {isOpen && (
-        <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+        <div
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm"
+          style={{ zIndex: Z_INDEX.MODAL - 1 }}
+          onClick={onClose}
+        />
       )}
       <div className={cn(
-        'fixed inset-y-0 right-0 z-50 w-full sm:w-96 bg-brand-card border-l border-brand-border shadow-2xl transform transition-transform duration-300 flex flex-col',
+        'fixed inset-y-0 right-0 w-full sm:w-96 bg-brand-card border-l border-brand-border shadow-2xl transform transition-transform duration-300 flex flex-col',
         isOpen ? 'translate-x-0' : 'translate-x-full'
-      )}>
+      )} style={{ zIndex: Z_INDEX.MODAL }}>
         {/* Header */}
         <div className="flex flex-col gap-1 border-b border-brand-border px-4 py-3 shrink-0">
           <div className="flex items-center justify-between gap-2">

@@ -1,4 +1,3 @@
-import { X } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -6,6 +5,7 @@ import toast from 'react-hot-toast'
 import { useCreateCategory, useUpdateCategory } from '@/hooks/useServiceCategories'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
+import Modal from '@/components/ui/Modal'
 
 const schema = z.object({
   name: z.string().min(2, 'El nombre es obligatorio'),
@@ -44,21 +44,13 @@ function CategoryModal({ isOpen, onClose, category }) {
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-md rounded-2xl border border-brand-pastel bg-brand-card p-4 sm:p-6 shadow-2xl max-w-[95vw] max-h-[90vh] overflow-y-auto">
-        <button
-          onClick={onClose}
-          className="absolute right-4 top-4 rounded-lg p-1 text-brand-text-muted hover:bg-brand-pastel hover:text-brand-primary z-50"
-        >
-          <X className="h-5 w-5" />
-        </button>
-
-        <h2 className="text-xl font-bold text-brand-text">
-          {category ? 'Editar Categoría' : 'Nueva Categoría'}
-        </h2>
-
-        <form onSubmit={handleSubmit(onSubmit)} className="mt-6 flex flex-col gap-4">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={category ? 'Editar Categoría' : 'Nueva Categoría'}
+      maxWidthClass="max-w-md"
+    >
+        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
           <Input
             label="Nombre de la categoría"
             placeholder="Ej. Manicura"
@@ -80,8 +72,7 @@ function CategoryModal({ isOpen, onClose, category }) {
             <Button type="submit" loading={isCreating || isUpdating}>Guardar</Button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   )
 }
 

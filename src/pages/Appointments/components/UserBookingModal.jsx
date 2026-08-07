@@ -11,6 +11,7 @@ import { useCreateAppointment } from '@/hooks/useAppointments'
 import { usePaymentSettings } from '@/hooks/usePaymentSettings'
 import { checkAppointmentConflict } from '@/services/appointments/appointmentsService'
 import { USER_ROLES, PAYMENT_PROVIDERS } from '@/constants/app'
+import { Z_INDEX } from '@/constants/zIndex'
 import { validateAppointmentDateTime } from '@/utils/dateValidation'
 import { useBusinessSettings } from '@/hooks/useBusinessSettings'
 import { canStartServiceAt, getScheduleErrorMessage } from '@/services/scheduleService'
@@ -230,9 +231,9 @@ function UserBookingModal({ isOpen, onClose, defaultServiceId = null }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
+    <div className="fixed inset-0 flex items-center justify-center p-3 sm:p-4" style={{ zIndex: Z_INDEX.MODAL }}>
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-lg rounded-2xl border border-brand-border bg-brand-card shadow-2xl flex flex-col max-w-[95vw] max-h-[92vh] sm:max-h-[90vh] overflow-hidden">
+      <div className="relative w-full max-w-lg rounded-2xl border border-brand-border bg-brand-card shadow-2xl flex flex-col max-w-[95vw] max-h-[92dvh] sm:max-h-[90dvh] overflow-hidden">
         
         {/* Header - Fixed */}
         <div className="relative shrink-0 border-b border-brand-border/40 p-4 sm:px-6 sm:py-5 bg-brand-card z-10">

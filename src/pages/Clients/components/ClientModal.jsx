@@ -1,4 +1,3 @@
-import { X } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -7,6 +6,7 @@ import { useCreateClient, useUpdateClient } from '@/hooks/useClients'
 import { formatPhoneDisplayPY, formatPhoneStoragePY } from '@/utils/formatters'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
+import Modal from '@/components/ui/Modal'
 
 const schema = z.object({
   name: z.string().min(2, 'El nombre es obligatorio'),
@@ -69,22 +69,13 @@ function ClientModal({ isOpen, onClose, client }) {
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={onClose} />
-      
-      <div className="relative w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl border border-brand-pastel bg-brand-card p-4 sm:p-6 shadow-2xl">
-        <button 
-          onClick={onClose}
-          className="absolute right-4 top-4 rounded-lg p-1 text-brand-text-muted hover:bg-brand-pastel hover:text-brand-primary z-50"
-        >
-          <X className="h-5 w-5" />
-        </button>
-
-        <h2 className="text-xl font-bold text-brand-text">
-          {client ? 'Editar Cliente' : 'Nuevo Cliente'}
-        </h2>
-        
-        <form onSubmit={handleSubmit(onSubmit)} className="mt-6 flex flex-col gap-4">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={client ? 'Editar Cliente' : 'Nuevo Cliente'}
+      maxWidthClass="max-w-md"
+    >
+        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
           <Input 
             label="Nombre Completo" 
             placeholder="Ej. Ana Pérez"
@@ -156,8 +147,7 @@ function ClientModal({ isOpen, onClose, client }) {
             <Button type="submit" loading={isCreating || isUpdating}>Guardar</Button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   )
 }
 

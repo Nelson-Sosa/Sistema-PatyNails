@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { Gift, Sparkles, ArrowRight, X } from 'lucide-react'
+import { Gift, Sparkles, ArrowRight } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { ROUTES } from '@/routes/routes'
 import { cn } from '@/utils/cn'
 import ProgressBar from '@/components/ui/ProgressBar'
+import Modal from '@/components/ui/Modal'
 import { useBenefitsSettings } from '@/hooks/useBenefits'
 import {
   getAccumulationLabel,
@@ -138,41 +139,31 @@ function MisBeneficiosCard({ totalVisits = 0, totalServices = 0 }) {
       </div>
 
       {/* Reward modal */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowModal(false)} />
-          <div className="relative w-full max-w-sm rounded-2xl border border-brand-border bg-brand-card p-6 shadow-2xl max-w-[95vw] max-h-[90vh] overflow-y-auto">
-            <button
-              onClick={() => setShowModal(false)}
-              className="absolute right-4 top-4 rounded-lg p-1 text-brand-text-muted hover:bg-brand-pastel/30 hover:text-brand-text z-50"
-            >
-              <X className="h-5 w-5" />
-            </button>
-
-            <div className="flex flex-col items-center gap-4 text-center">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500/20 to-emerald-400/10">
-                <Gift className="h-7 w-7 text-emerald-500" />
-              </div>
-              <div>
-                <h2 className="text-lg font-bold text-brand-text">Recompensa disponible</h2>
-                <p className="mt-2 text-sm text-brand-text-muted leading-relaxed">
-                  Ya puedes reclamar tu {rewardLabel} en tu próxima visita.
-                </p>
-              </div>
-              <button
-                onClick={() => {
-                  setShowModal(false)
-                  navigate(ROUTES.APPOINTMENTS)
-                }}
-                className="mt-2 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-rose-500/90 to-violet-500/90 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-all duration-200 hover:from-rose-600 hover:to-violet-600 active:scale-[0.97]"
-              >
-                Reservar turno
-                <ArrowRight className="h-4 w-4" />
-              </button>
-            </div>
+      <Modal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        title="Recompensa disponible"
+        maxWidthClass="max-w-sm"
+      >
+        <div className="flex flex-col items-center gap-4 text-center">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500/20 to-emerald-400/10">
+            <Gift className="h-7 w-7 text-emerald-500" />
           </div>
+          <p className="text-sm text-brand-text-muted leading-relaxed">
+            Ya puedes reclamar tu {rewardLabel} en tu próxima visita.
+          </p>
+          <button
+            onClick={() => {
+              setShowModal(false)
+              navigate(ROUTES.APPOINTMENTS)
+            }}
+            className="mt-2 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-rose-500/90 to-violet-500/90 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-all duration-200 hover:from-rose-600 hover:to-violet-600 active:scale-[0.97]"
+          >
+            Reservar turno
+            <ArrowRight className="h-4 w-4" />
+          </button>
         </div>
-      )}
+      </Modal>
     </>
   )
 }

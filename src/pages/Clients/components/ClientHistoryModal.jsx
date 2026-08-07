@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { X, CalendarDays, Clock, DollarSign, Scissors, Gift, Sparkles, AlertTriangle } from 'lucide-react'
+import { CalendarDays, Clock, DollarSign, Scissors, Gift, Sparkles, AlertTriangle } from 'lucide-react'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { useClientHistory } from '@/hooks/useClients'
@@ -20,6 +20,7 @@ import Button from '@/components/ui/Button'
 import Spinner from '@/components/ui/Spinner'
 import Badge from '@/components/ui/Badge'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
+import Modal from '@/components/ui/Modal'
 import WorkDetailModal from '@/pages/Works/components/WorkDetailModal'
 
 function getAptDate(apt) {
@@ -64,17 +65,13 @@ function ClientHistoryModal({ isOpen, onClose, client }) {
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={onClose} />
-
-      <div className="relative w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl border border-brand-pastel bg-brand-card p-4 sm:p-6 lg:p-8 shadow-2xl">
-        <button
-          onClick={onClose}
-          className="absolute right-4 top-4 rounded-lg p-1 text-brand-text-muted hover:bg-brand-pastel hover:text-brand-primary z-50"
-        >
-          <X className="h-5 w-5" />
-        </button>
-
+    <>
+      <Modal
+        isOpen={isOpen}
+        onClose={onClose}
+        title={client.name}
+        maxWidthClass="max-w-3xl"
+      >
         {isLoading || isLoadingWorks ? (
           <div className="flex h-48 items-center justify-center">
             <Spinner size="lg" />
@@ -83,8 +80,7 @@ function ClientHistoryModal({ isOpen, onClose, client }) {
           <div className="flex flex-col gap-8">
             {/* ── Client Header ──────────────────────────────────────────── */}
             <div>
-              <h2 className="text-xl font-bold text-brand-text">{client.name}</h2>
-              <p className="mt-0.5 text-sm text-brand-text-muted">
+              <p className="text-sm text-brand-text-muted">
                 {formatPhoneDisplayPY(client.phone || client.whatsapp) || 'Sin teléfono'}
               </p>
             </div>
@@ -307,14 +303,14 @@ function ClientHistoryModal({ isOpen, onClose, client }) {
             </div>
           </div>
         )}
-      </div>
+      </Modal>
 
       <WorkDetailModal
         isOpen={!!selectedWork}
         onClose={() => setSelectedWork(null)}
         work={selectedWork}
       />
-    </div>
+    </>
   )
 }
 

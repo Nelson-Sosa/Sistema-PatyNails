@@ -34,7 +34,7 @@ function Modal({ isOpen, onClose, title, children, className, maxWidthClass = "m
       {/* Modal Container */}
       <div
         className={cn(
-          "relative flex flex-col w-full max-w-[95vw] max-h-[90vh] rounded-2xl border border-brand-pastel bg-brand-card shadow-2xl overflow-hidden",
+          "relative flex flex-col w-full max-w-[95vw] max-h-[90dvh] rounded-2xl border border-brand-pastel bg-brand-card shadow-2xl overflow-hidden",
           maxWidthClass,
           className
         )}

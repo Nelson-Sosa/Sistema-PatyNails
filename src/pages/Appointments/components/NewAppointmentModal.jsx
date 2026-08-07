@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo } from 'react'
-import { X } from 'lucide-react'
 import { format } from 'date-fns'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -19,6 +18,7 @@ import { formatCurrency } from '@/utils/formatters'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import TimeSelect from '@/components/ui/TimeSelect'
+import Modal from '@/components/ui/Modal'
 import { cn } from '@/utils/cn'
 
 const schema = z.object({
@@ -182,21 +182,12 @@ function NewAppointmentModal({ isOpen, onClose, initialDate, initialTime, appoin
   const minDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      
-      {/* Modal */}
-      <div className="relative w-full max-w-lg rounded-2xl border border-brand-border bg-brand-card p-4 sm:p-6 shadow-2xl max-w-[95vw] max-h-[90vh] overflow-y-auto">
-        <button 
-          onClick={onClose}
-          className="absolute right-4 top-4 rounded-lg p-1 text-brand-text-muted hover:bg-brand-pastel/30 hover:text-brand-text z-50"
-        >
-          <X className="h-5 w-5" />
-        </button>
-
-          <h2 className="text-xl font-bold text-brand-text">{isEditing ? 'Editar Turno' : 'Agendar Turno'}</h2>
-
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={isEditing ? 'Editar Turno' : 'Agendar Turno'}
+      maxWidthClass="max-w-lg"
+    >
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5">
           {/* Client Select */}
           <div className="flex flex-col gap-1.5">
@@ -279,8 +270,7 @@ function NewAppointmentModal({ isOpen, onClose, initialDate, initialTime, appoin
             <Button type="submit" loading={isSubmitting || isPending}>Guardar</Button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   )
 }
 
