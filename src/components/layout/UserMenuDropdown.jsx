@@ -12,14 +12,14 @@ function UserMenuDropdown({ isOpen, onClose, displayName, email, initials, isAdm
     <div
       className={cn(
         'w-56 origin-top-right animate-slide-down',
-        'rounded-2xl border border-white/[0.08] bg-slate-900/95',
-        'shadow-[0_8px_32px_rgba(0,0,0,0.4)] backdrop-blur-xl',
+        'rounded-2xl border border-brand-border bg-brand-card',
+        'shadow-[0_8px_32px_rgba(0,0,0,0.08)] backdrop-blur-xl',
         'overflow-hidden'
       )}
     >
-      <div className="border-b border-white/[0.06] px-4 py-3">
-        <p className="text-sm font-medium text-white">{displayName}</p>
-        <p className="mt-0.5 truncate text-xs text-slate-500">{email}</p>
+      <div className="border-b border-brand-border px-4 py-3">
+        <p className="text-sm font-medium text-brand-text">{displayName}</p>
+        <p className="mt-0.5 truncate text-xs text-brand-text-muted">{email}</p>
       </div>
 
       <div className="p-1">
@@ -31,10 +31,10 @@ function UserMenuDropdown({ isOpen, onClose, displayName, email, initials, isAdm
           }}
           className={cn(
             'flex w-full items-center gap-3 rounded-lg px-3 py-2',
-            'text-sm text-slate-300 transition-colors hover:bg-white/[0.06] hover:text-white'
+            'text-sm text-brand-text transition-colors hover:bg-brand-pastel/50 hover:text-brand-primary'
           )}
         >
-          <User className="h-4 w-4 text-slate-500" aria-hidden="true" />
+          <User className="h-4 w-4 text-brand-text-muted" aria-hidden="true" />
           Mi perfil
         </button>
 
@@ -47,22 +47,22 @@ function UserMenuDropdown({ isOpen, onClose, displayName, email, initials, isAdm
             }}
             className={cn(
               'flex w-full items-center gap-3 rounded-lg px-3 py-2',
-              'text-sm text-slate-300 transition-colors hover:bg-white/[0.06] hover:text-white'
+              'text-sm text-brand-text transition-colors hover:bg-brand-pastel/50 hover:text-brand-primary'
             )}
           >
-            <Settings className="h-4 w-4 text-slate-500" aria-hidden="true" />
+            <Settings className="h-4 w-4 text-brand-text-muted" aria-hidden="true" />
             Configuración
           </button>
         )}
 
-        <div className="my-1 border-t border-white/[0.06]" />
+        <div className="my-1 border-t border-brand-border" />
 
         <button
           role="menuitem"
           onClick={onLogout}
           className={cn(
             'flex w-full items-center gap-3 rounded-lg px-3 py-2',
-            'text-sm text-red-400 transition-colors hover:bg-red-500/10 hover:text-red-300'
+            'text-sm text-red-500 transition-colors hover:bg-red-500/10 hover:text-red-600'
           )}
         >
           <LogOut className="h-4 w-4" aria-hidden="true" />
